@@ -1,0 +1,196 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TransactionType {
+  TRANSFER
+  TRADE
+  DEPOSIT
+  WITHDRAWAL
+  SWAP
+  STAKING
+  MINING
+  AIRDROP
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ComplianceStatus {
+  PENDING
+  APPROVED
+  FLAGGED
+  REJECTED
+  UNDER_REVIEW
+}
+
+enum ReportType {
+  SAR
+  CTR
+  TRAVEL_RULE
+  TAX_SUMMARY
+}
+
+enum UserRole {
+  ADMIN
+  COMPLIANCE_OFFICER
+  ANALYST
+  AUDITOR
+  USER
+}
+
+enum TaxEventType {
+  CAPITAL_GAIN_SHORT
+  CAPITAL_GAIN_LONG
+  INCOME
+  MINING_INCOME
+  STAKING_REWARD
+  AIRDROP_INCOME
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  role         UserRole  @default(USER)
+  firstName    String?
+  lastName     String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  transactions     Transaction[]
+  wallets          Wallet[]
+  taxEvents        TaxEvent[]
+  reviewedReports  ComplianceReport[] @relation("ReviewedReports")
+
+  @@index([email])
+}
+
+model Transaction {
+  id                 String           @id @default(uuid())
+  userId             String
+  type               TransactionType
+  fromAddress        String
+  toAddress          String
+  amount             Float
+  currency           String
+  amountUSD          Float
+  fee                Float            @default(0)
+  feeUSD             Float            @default(0)
+  txHash             String?
+  blockchain         String
+  riskLevel          RiskLevel        @default(LOW)
+  complianceStatus   ComplianceStatus @default(PENDING)
+  travelRuleRequired Boolean          @default(false)
+  metadata           Json?
+  timestamp          DateTime
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  user             User               @relation(fields: [userId], references: [id])
+  complianceReports ComplianceReport[]
+  taxEvents        TaxEvent[]
+  travelRuleData   TravelRuleData?
+
+  @@index([userId])
+  @@index([riskLevel])
+  @@index([complianceStatus])
+  @@index([blockchain])
+  @@index([timestamp])
+}
+
+model Wallet {
+  id          String   @id @default(uuid())
+  address     String
+  blockchain  String
+  userId      String?
+  label       String?
+  riskScore   Float    @default(0)
+  isSanctioned Boolean @default(false)
+  lastChecked DateTime?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@unique([address, blockchain])
+  @@index([userId])
+  @@index([blockchain])
+}
+
+model ComplianceReport {
+  id           String           @id @default(uuid())
+  type         ReportType
+  transactionId String
+  status       ComplianceStatus @default(PENDING)
+  riskLevel    RiskLevel
+  reportData   Json
+  reviewerId   String?
+  reviewedAt   DateTime?
+  reviewNotes  String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+  reviewer    User?       @relation("ReviewedReports", fields: [reviewerId], references: [id])
+
+  @@index([transactionId])
+  @@index([type])
+  @@index([status])
+}
+
+model TaxEvent {
+  id            String       @id @default(uuid())
+  userId        String
+  transactionId String
+  type          TaxEventType
+  acquiredDate  DateTime
+  disposedDate  DateTime?
+  costBasis     Float
+  proceeds      Float
+  gain          Float
+  currency      String
+  quantity      Float
+  taxYear       Int
+  isLongTerm    Boolean
+  createdAt     DateTime     @default(now())
+
+  user        User        @relation(fields: [userId], references: [id])
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+
+  @@index([userId])
+  @@index([taxYear])
+  @@index([type])
+}
+
+model TravelRuleData {
+  id                 String   @id @default(uuid())
+  transactionId      String   @unique
+  originatorName     String
+  originatorAccount  String
+  originatorVASP     String
+  beneficiaryName    String
+  beneficiaryAccount String
+  beneficiaryVASP    String
+  amount             Float
+  currency           String
+  compliant          Boolean  @default(false)
+  threshold          Float    @default(1000)
+  createdAt          DateTime @default(now())
+
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+}
