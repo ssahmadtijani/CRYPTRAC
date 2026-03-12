@@ -5,6 +5,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate, authorize } from '../middleware/auth';
 import { validate } from '../middleware/validate';
+import { apiRateLimiter } from '../middleware/rateLimiter';
 import {
   createTransactionSchema,
   transactionFilterSchema,
@@ -13,6 +14,9 @@ import * as transactionService from '../services/transaction.service';
 import { UserRole, ApiResponse, Transaction } from '../types';
 
 export const transactionRoutes = Router();
+
+// Apply rate limiting to all transaction routes
+transactionRoutes.use(apiRateLimiter);
 
 /**
  * POST /api/v1/transactions

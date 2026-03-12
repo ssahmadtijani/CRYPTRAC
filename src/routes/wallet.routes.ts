@@ -5,11 +5,15 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate, authorize } from '../middleware/auth';
 import { validate } from '../middleware/validate';
+import { apiRateLimiter } from '../middleware/rateLimiter';
 import { walletSchema } from '../validators/schemas';
 import * as walletService from '../services/wallet.service';
 import { UserRole, ApiResponse, Wallet } from '../types';
 
 export const walletRoutes = Router();
+
+// Apply rate limiting to all wallet routes
+walletRoutes.use(apiRateLimiter);
 
 /**
  * POST /api/v1/wallets

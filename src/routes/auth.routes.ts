@@ -4,6 +4,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { validate } from '../middleware/validate';
+import { authRateLimiter } from '../middleware/rateLimiter';
 import { loginSchema, registerSchema } from '../validators/schemas';
 import * as authService from '../services/auth.service';
 import { ApiResponse } from '../types';
@@ -16,6 +17,7 @@ export const authRoutes = Router();
  */
 authRoutes.post(
   '/register',
+  authRateLimiter,
   validate(registerSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -37,6 +39,7 @@ authRoutes.post(
  */
 authRoutes.post(
   '/login',
+  authRateLimiter,
   validate(loginSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {

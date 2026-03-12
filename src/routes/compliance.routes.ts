@@ -4,11 +4,15 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate, authorize } from '../middleware/auth';
+import { complianceRateLimiter } from '../middleware/rateLimiter';
 import * as complianceService from '../services/compliance.service';
 import * as transactionService from '../services/transaction.service';
 import { UserRole, ApiResponse, ComplianceReport } from '../types';
 
 export const complianceRoutes = Router();
+
+// Apply rate limiting to all compliance routes
+complianceRoutes.use(complianceRateLimiter);
 
 /**
  * POST /api/v1/compliance/check/:transactionId
