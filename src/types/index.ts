@@ -1,3 +1,13 @@
+/**
+ * Core Type Definitions for CRYPTRAC
+ * Crypto Transaction Reporting and Compliance System (NCTMTCS)
+ * Aligned with FATF Recommendation 16 (Travel Rule) and AML/CFT Standards
+ */
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
 export enum TransactionType {
   TRANSFER = 'TRANSFER',
   TRADE = 'TRADE',
@@ -66,6 +76,29 @@ export interface Transaction {
   travelRuleRequired: boolean;
   metadata?: Record<string, unknown>;
   timestamp: Date;
+// ---------------------------------------------------------------------------
+// Interfaces
+// ---------------------------------------------------------------------------
+
+export interface Transaction {
+  id: string;
+  txHash: string;
+  type: TransactionType;
+  senderAddress: string;
+  receiverAddress: string;
+  asset: string;
+  amount: number;
+  amountUSD: number;
+  fee: number;
+  feeUSD: number;
+  blockNumber?: number;
+  network: string;
+  timestamp: Date;
+  riskLevel: RiskLevel;
+  riskScore: number;
+  complianceStatus: ComplianceStatus;
+  userId: string;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -80,6 +113,17 @@ export interface Wallet {
   isSanctioned: boolean;
   lastChecked?: Date;
   metadata?: Record<string, unknown>;
+  network: string;
+  label?: string;
+  riskScore: number;
+  riskLevel: RiskLevel;
+  isSanctioned: boolean;
+  sanctionDetails?: string;
+  userId: string;
+  firstSeen: Date;
+  lastSeen: Date;
+  transactionCount: number;
+  totalVolumeUSD: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -94,6 +138,15 @@ export interface ComplianceReport {
   reviewerId?: string;
   reviewedAt?: Date;
   reviewNotes?: string;
+  reportType: ReportType;
+  transactionId: string;
+  status: ComplianceStatus;
+  filedBy?: string;
+  filedAt?: Date;
+  reviewedBy?: string;
+  reviewedAt?: Date;
+  narrative: string;
+  findings: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -112,6 +165,17 @@ export interface TaxEvent {
   quantity: number;
   taxYear: number;
   isLongTerm: boolean;
+  eventType: TaxEventType;
+  asset: string;
+  amount: number;
+  costBasis: number;
+  proceeds: number;
+  gainLoss: number;
+  holdingPeriodDays: number;
+  taxYear: number;
+  taxableAmount: number;
+  taxRate: number;
+  taxOwed: number;
   createdAt: Date;
 }
 
@@ -128,6 +192,18 @@ export interface TravelRuleData {
   currency: string;
   compliant: boolean;
   threshold: number;
+  originatorAddress: string;
+  originatorVASP: string;
+  originatorVASPId: string;
+  beneficiaryName: string;
+  beneficiaryAddress: string;
+  beneficiaryVASP: string;
+  beneficiaryVASPId: string;
+  transferAmount: number;
+  transferAsset: string;
+  transferAmountUSD: number;
+  isCompliant: boolean;
+  complianceNotes?: string;
   createdAt: Date;
 }
 
@@ -139,6 +215,11 @@ export interface User {
   firstName?: string;
   lastName?: string;
   isActive: boolean;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  isActive: boolean;
+  lastLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -156,6 +237,10 @@ export interface ApiResponse<T> {
     page: number;
     limit: number;
     totalPages: number;
+    page?: number;
+    pageSize?: number;
+    total?: number;
+    totalPages?: number;
   };
 }
 
@@ -165,6 +250,13 @@ export interface PaginationParams {
 }
 
 export interface TransactionFilter extends Partial<PaginationParams> {
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface TransactionFilter extends PaginationParams {
   userId?: string;
   type?: TransactionType;
   riskLevel?: RiskLevel;
@@ -174,6 +266,14 @@ export interface TransactionFilter extends Partial<PaginationParams> {
   toDate?: Date;
   minAmount?: number;
   maxAmount?: number;
+  asset?: string;
+  network?: string;
+  startDate?: Date;
+  endDate?: Date;
+  minAmountUSD?: number;
+  maxAmountUSD?: number;
+  senderAddress?: string;
+  receiverAddress?: string;
 }
 
 export interface TaxSummary {
@@ -188,4 +288,14 @@ export interface TaxSummary {
   airdropIncome: number;
   totalTaxableAmount: number;
   events: TaxEvent[];
+  totalShortTermGains: number;
+  totalLongTermGains: number;
+  totalIncome: number;
+  totalMiningIncome: number;
+  totalStakingRewards: number;
+  totalAirdropIncome: number;
+  totalTaxableIncome: number;
+  estimatedTaxOwed: number;
+  events: TaxEvent[];
+  generatedAt: Date;
 }
