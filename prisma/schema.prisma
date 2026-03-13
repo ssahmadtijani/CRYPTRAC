@@ -1,0 +1,240 @@
+/**
+ * Prisma Database Schema for CRYPTRAC
+ */
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum TransactionType {
+  TRANSFER
+  TRADE
+  DEPOSIT
+  WITHDRAWAL
+  SWAP
+  STAKING
+  MINING
+  AIRDROP
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ComplianceStatus {
+  PENDING
+  APPROVED
+  FLAGGED
+  REJECTED
+  UNDER_REVIEW
+}
+
+enum ReportType {
+  SAR
+  CTR
+  TRAVEL_RULE
+  TAX_SUMMARY
+}
+
+enum UserRole {
+  ADMIN
+  COMPLIANCE_OFFICER
+  ANALYST
+  AUDITOR
+  USER
+}
+
+enum TaxEventType {
+  CAPITAL_GAIN_SHORT
+  CAPITAL_GAIN_LONG
+  INCOME
+  MINING_INCOME
+  STAKING_REWARD
+  AIRDROP_INCOME
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         UserRole  @default(USER)
+  isActive     Boolean   @default(true)
+  lastLogin    DateTime?
+
+  transactions     Transaction[]
+  wallets          Wallet[]
+  complianceReports ComplianceReport[] @relation("FiledBy")
+  reviewedReports   ComplianceReport[] @relation("ReviewedBy")
+  taxEvents        TaxEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
+
+model Transaction {
+  id               String           @id @default(uuid())
+  txHash           String           @unique
+  type             TransactionType
+  senderAddress    String
+  receiverAddress  String
+  asset            String
+  amount           Decimal          @db.Decimal(36, 18)
+  amountUSD        Decimal          @db.Decimal(20, 2)
+  fee              Decimal          @db.Decimal(36, 18) @default(0)
+  feeUSD           Decimal          @db.Decimal(20, 2)  @default(0)
+  blockNumber      Int?
+  network          String
+  timestamp        DateTime
+  riskLevel        RiskLevel        @default(LOW)
+  riskScore        Float            @default(0)
+  complianceStatus ComplianceStatus @default(PENDING)
+  metadata         Json?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  complianceReports ComplianceReport[]
+  taxEvents         TaxEvent[]
+  travelRuleData    TravelRuleData?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([txHash])
+  @@index([senderAddress])
+  @@index([receiverAddress])
+  @@index([timestamp])
+  @@index([riskLevel])
+  @@index([complianceStatus])
+  @@index([type])
+  @@index([asset])
+  @@index([network])
+}
+
+model Wallet {
+  id              String    @id @default(uuid())
+  address         String    @unique
+  network         String
+  label           String?
+  riskScore       Float     @default(0)
+  riskLevel       RiskLevel @default(LOW)
+  isSanctioned    Boolean   @default(false)
+  sanctionDetails String?
+  firstSeen       DateTime  @default(now())
+  lastSeen        DateTime  @default(now())
+  transactionCount Int      @default(0)
+  totalVolumeUSD  Decimal   @db.Decimal(20, 2) @default(0)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([address])
+  @@index([userId])
+  @@index([riskLevel])
+  @@index([isSanctioned])
+}
+
+model ComplianceReport {
+  id          String           @id @default(uuid())
+  reportType  ReportType
+  status      ComplianceStatus @default(PENDING)
+  narrative   String           @db.Text
+  findings    Json
+
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+
+  filedById  String?
+  filedBy    User?     @relation("FiledBy", fields: [filedById], references: [id])
+  filedAt    DateTime?
+
+  reviewedById String?
+  reviewedBy   User?     @relation("ReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([transactionId])
+  @@index([reportType])
+  @@index([status])
+  @@index([filedById])
+}
+
+model TaxEvent {
+  id                String       @id @default(uuid())
+  eventType         TaxEventType
+  asset             String
+  amount            Decimal      @db.Decimal(36, 18)
+  costBasis         Decimal      @db.Decimal(20, 2)
+  proceeds          Decimal      @db.Decimal(20, 2)
+  gainLoss          Decimal      @db.Decimal(20, 2)
+  holdingPeriodDays Int
+  taxYear           Int
+  taxableAmount     Decimal      @db.Decimal(20, 2)
+  taxRate           Float
+  taxOwed           Decimal      @db.Decimal(20, 2)
+
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([transactionId])
+  @@index([taxYear])
+  @@index([eventType])
+}
+
+model TravelRuleData {
+  id                  String  @id @default(uuid())
+  originatorName      String
+  originatorAddress   String
+  originatorVASP      String
+  originatorVASPId    String
+  beneficiaryName     String
+  beneficiaryAddress  String
+  beneficiaryVASP     String
+  beneficiaryVASPId   String
+  transferAmount      Decimal @db.Decimal(36, 18)
+  transferAsset       String
+  transferAmountUSD   Decimal @db.Decimal(20, 2)
+  isCompliant         Boolean @default(false)
+  complianceNotes     String?
+
+  transactionId String      @unique
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([transactionId])
+  @@index([originatorAddress])
+  @@index([beneficiaryAddress])
+}
