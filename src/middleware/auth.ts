@@ -8,6 +8,12 @@ import jwt from 'jsonwebtoken';
 import { UserRole } from '../types';
 import { logger } from '../utils/logger';
 
+export interface JwtPayload {
+  id: string;
+  email: string;
+  role: UserRole;
+}
+
 // Extend Express Request type to include user payload
 declare global {
   namespace Express {
@@ -39,10 +45,27 @@ export const authenticate = (
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     res.status(401).json({
       success: false,
+      error: { message: 'Authentication required. No token provided.' },
       error: { message: 'Authentication required. Provide a Bearer token.' },
     });
     return;
   }
+
+  const token = authHeader.split(' ')[1];
+  const secret = process.env.JWT_SECRET || 'default-dev-secret';
+
+  try {
+    const decoded = jwt.verify(token, secret) as JwtPayload;
+    req.user = decoded;
+    next();
+  } catch (err) {
+    logger.warn({ message: 'Invalid JWT token', error: err });
+    res.status(401).json({
+      success: false,
+      error: { message: 'Invalid or expired token.' },
+    });
+  }
+};
 
   const token = authHeader.slice(7);
 
@@ -96,6 +119,9 @@ export const authorize = (...roles: UserRole[]) => {
     }
 
     if (!roles.includes(req.user.role)) {
+      res.status(403).json({
+        success: false,
+        error: { message: 'Insufficient permissions.' },
       logger.warn('Unauthorized access attempt', {
         userId: req.user.userId,
         role: req.user.role,
