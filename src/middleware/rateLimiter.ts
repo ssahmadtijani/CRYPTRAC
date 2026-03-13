@@ -1,29 +1,6 @@
-import rateLimit from 'express-rate-limit';
-
-export const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    error: { message: 'Too many requests, please try again later.' },
-  },
-});
-
-export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    error: { message: 'Too many authentication attempts, please try again later.' },
-  },
 /**
  * In-memory rate limiting middleware for CRYPTRAC.
  * Uses a sliding-window counter keyed by IP address.
- * No external dependencies required.
  */
 
 import { Request, Response, NextFunction } from 'express';
@@ -34,33 +11,22 @@ interface RateLimitEntry {
   resetAt: number;
 }
 
-/** Per-route state so different limiters are independent. */
 function createStore(): Map<string, RateLimitEntry> {
   return new Map();
 }
 
 export interface RateLimitOptions {
-  /** Maximum number of requests allowed within `windowMs`. */
   maxRequests: number;
-  /** Window duration in milliseconds. */
   windowMs: number;
-  /** Human-readable message returned when limit is exceeded. */
   message?: string;
 }
 
-/**
- * Returns an Express middleware that enforces a sliding-window rate limit.
- *
- * Usage:
- *   router.post('/login', rateLimiter({ maxRequests: 10, windowMs: 60_000 }), handler)
- */
 export function rateLimiter(options: RateLimitOptions) {
   const { maxRequests, windowMs, message = 'Too many requests. Please try again later.' } =
     options;
 
   const store = createStore();
 
-  // Periodically clean up expired entries to prevent memory leaks.
   const cleanup = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of store.entries()) {
@@ -70,7 +36,6 @@ export function rateLimiter(options: RateLimitOptions) {
     }
   }, windowMs);
 
-  // Allow the Node.js process to exit even if the interval is still running.
   if (cleanup.unref) {
     cleanup.unref();
   }
@@ -89,7 +54,6 @@ export function rateLimiter(options: RateLimitOptions) {
     const entry = store.get(ip);
 
     if (!entry || entry.resetAt <= now) {
-      // Start a fresh window for this IP.
       store.set(ip, { count: 1, resetAt: now + windowMs });
       next();
       return;

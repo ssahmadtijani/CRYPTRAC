@@ -58,24 +58,6 @@ export enum TaxEventType {
   AIRDROP_INCOME = 'AIRDROP_INCOME',
 }
 
-export interface Transaction {
-  id: string;
-  userId: string;
-  type: TransactionType;
-  fromAddress: string;
-  toAddress: string;
-  amount: number;
-  currency: string;
-  amountUSD: number;
-  fee: number;
-  feeUSD: number;
-  txHash?: string;
-  blockchain: string;
-  riskLevel: RiskLevel;
-  complianceStatus: ComplianceStatus;
-  travelRuleRequired: boolean;
-  metadata?: Record<string, unknown>;
-  timestamp: Date;
 // ---------------------------------------------------------------------------
 // Interfaces
 // ---------------------------------------------------------------------------
@@ -103,16 +85,28 @@ export interface Transaction {
   updatedAt: Date;
 }
 
+export interface TransactionFilter {
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  userId?: string;
+  type?: TransactionType;
+  riskLevel?: RiskLevel;
+  complianceStatus?: ComplianceStatus;
+  asset?: string;
+  network?: string;
+  startDate?: Date;
+  endDate?: Date;
+  minAmountUSD?: number;
+  maxAmountUSD?: number;
+  senderAddress?: string;
+  receiverAddress?: string;
+}
+
 export interface Wallet {
   id: string;
   address: string;
-  blockchain: string;
-  userId?: string;
-  label?: string;
-  riskScore: number;
-  isSanctioned: boolean;
-  lastChecked?: Date;
-  metadata?: Record<string, unknown>;
   network: string;
   label?: string;
   riskScore: number;
@@ -130,14 +124,6 @@ export interface Wallet {
 
 export interface ComplianceReport {
   id: string;
-  type: ReportType;
-  transactionId: string;
-  status: ComplianceStatus;
-  riskLevel: RiskLevel;
-  reportData: Record<string, unknown>;
-  reviewerId?: string;
-  reviewedAt?: Date;
-  reviewNotes?: string;
   reportType: ReportType;
   transactionId: string;
   status: ComplianceStatus;
@@ -155,16 +141,6 @@ export interface TaxEvent {
   id: string;
   userId: string;
   transactionId: string;
-  type: TaxEventType;
-  acquiredDate: Date;
-  disposedDate?: Date;
-  costBasis: number;
-  proceeds: number;
-  gain: number;
-  currency: string;
-  quantity: number;
-  taxYear: number;
-  isLongTerm: boolean;
   eventType: TaxEventType;
   asset: string;
   amount: number;
@@ -179,19 +155,25 @@ export interface TaxEvent {
   createdAt: Date;
 }
 
+export interface TaxSummary {
+  userId: string;
+  taxYear: number;
+  totalShortTermGains: number;
+  totalLongTermGains: number;
+  totalIncome: number;
+  totalMiningIncome: number;
+  totalStakingRewards: number;
+  totalAirdropIncome: number;
+  totalTaxableIncome: number;
+  estimatedTaxOwed: number;
+  events: TaxEvent[];
+  generatedAt: Date;
+}
+
 export interface TravelRuleData {
   id: string;
   transactionId: string;
   originatorName: string;
-  originatorAccount: string;
-  originatorVASP: string;
-  beneficiaryName: string;
-  beneficiaryAccount: string;
-  beneficiaryVASP: string;
-  amount: number;
-  currency: string;
-  compliant: boolean;
-  threshold: number;
   originatorAddress: string;
   originatorVASP: string;
   originatorVASPId: string;
@@ -211,10 +193,6 @@ export interface User {
   id: string;
   email: string;
   passwordHash: string;
-  role: UserRole;
-  firstName?: string;
-  lastName?: string;
-  isActive: boolean;
   firstName: string;
   lastName: string;
   role: UserRole;
@@ -233,10 +211,6 @@ export interface ApiResponse<T> {
     details?: unknown;
   };
   meta?: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
     page?: number;
     pageSize?: number;
     total?: number;
@@ -247,55 +221,4 @@ export interface ApiResponse<T> {
 export interface PaginationParams {
   page: number;
   limit: number;
-}
-
-export interface TransactionFilter extends Partial<PaginationParams> {
-  page?: number;
-  pageSize?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface TransactionFilter extends PaginationParams {
-  userId?: string;
-  type?: TransactionType;
-  riskLevel?: RiskLevel;
-  complianceStatus?: ComplianceStatus;
-  blockchain?: string;
-  fromDate?: Date;
-  toDate?: Date;
-  minAmount?: number;
-  maxAmount?: number;
-  asset?: string;
-  network?: string;
-  startDate?: Date;
-  endDate?: Date;
-  minAmountUSD?: number;
-  maxAmountUSD?: number;
-  senderAddress?: string;
-  receiverAddress?: string;
-}
-
-export interface TaxSummary {
-  userId: string;
-  taxYear: number;
-  shortTermGains: number;
-  longTermGains: number;
-  totalGains: number;
-  totalIncome: number;
-  miningIncome: number;
-  stakingIncome: number;
-  airdropIncome: number;
-  totalTaxableAmount: number;
-  events: TaxEvent[];
-  totalShortTermGains: number;
-  totalLongTermGains: number;
-  totalIncome: number;
-  totalMiningIncome: number;
-  totalStakingRewards: number;
-  totalAirdropIncome: number;
-  totalTaxableIncome: number;
-  estimatedTaxOwed: number;
-  events: TaxEvent[];
-  generatedAt: Date;
 }
