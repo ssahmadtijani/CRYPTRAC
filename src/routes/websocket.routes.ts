@@ -25,6 +25,7 @@ websocketRoutes.use(apiRateLimiter);
 
 websocketRoutes.get(
   '/clients',
+  apiRateLimiter,
   authenticate,
   authorize(UserRole.ADMIN),
   (_req: Request, res: Response, next: NextFunction): void => {
@@ -48,6 +49,7 @@ websocketRoutes.get(
 
 websocketRoutes.get(
   '/stats',
+  apiRateLimiter,
   authenticate,
   authorize(UserRole.ADMIN, UserRole.COMPLIANCE_OFFICER),
   (_req: Request, res: Response, next: NextFunction): void => {
@@ -70,6 +72,7 @@ websocketRoutes.get(
 
 websocketRoutes.post(
   '/broadcast',
+  apiRateLimiter,
   authenticate,
   authorize(UserRole.ADMIN),
   (req: Request, res: Response, next: NextFunction): void => {
