@@ -4,29 +4,53 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+import { Prisma } from '@prisma/client';
 import {
   Transaction,
   ComplianceReport,
-  TravelRuleData,
   ReportType,
   ComplianceStatus,
   RiskLevel,
 } from '../types';
 import { logger } from '../utils/logger';
-
-// In-memory compliance report store (replace with Prisma in production)
-const complianceReports: Map<string, ComplianceReport> = new Map();
-const travelRuleRecords: Map<string, TravelRuleData> = new Map();
+import { prisma } from '../lib/prisma';
 
 // ---------------------------------------------------------------------------
 // Regulatory thresholds (USD)
 // ---------------------------------------------------------------------------
-/** FinCEN / FINTRAC Suspicious Activity Report threshold */
 const SAR_THRESHOLD_USD = 10_000;
-/** FinCEN Currency Transaction Report threshold */
 const CTR_THRESHOLD_USD = 10_000;
-/** FATF Recommendation 16 Travel Rule threshold */
 const TRAVEL_RULE_THRESHOLD_USD = 1_000;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function mapPrismaReport(r: {
+  id: string;
+  reportType: string;
+  transactionId: string;
+  status: string;
+  narrative: string | null;
+  findings: unknown;
+  reviewedById: string | null;
+  reviewedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): ComplianceReport {
+  return {
+    id: r.id,
+    reportType: r.reportType as ReportType,
+    transactionId: r.transactionId,
+    status: r.status as ComplianceStatus,
+    narrative: r.narrative ?? '',
+    findings: (r.findings as Record<string, unknown>) ?? {},
+    reviewedBy: r.reviewedById ?? undefined,
+    reviewedAt: r.reviewedAt ?? undefined,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -53,18 +77,13 @@ export async function checkCompliance(
   const travelRuleRequired = transaction.amountUSD >= TRAVEL_RULE_THRESHOLD_USD;
 
   if (sarRequired) {
-    const sar = await generateSAR(transaction);
-    reports.push(sar);
+    reports.push(await generateSAR(transaction));
   }
-
   if (ctrRequired) {
-    const ctr = await generateCTR(transaction);
-    reports.push(ctr);
+    reports.push(await generateCTR(transaction));
   }
-
   if (travelRuleRequired) {
-    const travelRule = await checkTravelRule(transaction);
-    reports.push(travelRule);
+    reports.push(await checkTravelRule(transaction));
   }
 
   logger.info('Compliance check completed', {
@@ -87,228 +106,178 @@ export async function checkCompliance(
  * Generates a Suspicious Activity Report (SAR) for a transaction.
  */
 export async function generateSAR(transaction: Transaction): Promise<ComplianceReport> {
-  const now = new Date();
-  const report: ComplianceReport = {
-    id: uuidv4(),
-    reportType: ReportType.SAR,
+  const narrative = buildSARNarrative(transaction);
+  const findings = {
     transactionId: transaction.id,
-    status: ComplianceStatus.PENDING,
-    narrative: buildSARNarrative(transaction),
-    findings: {
-      transactionId: transaction.id,
-      txHash: transaction.txHash,
-      amount: transaction.amountUSD,
-      threshold: SAR_THRESHOLD_USD,
-      senderAddress: transaction.senderAddress,
-      receiverAddress: transaction.receiverAddress,
-      asset: transaction.asset,
-      network: transaction.network,
-      riskScore: transaction.riskScore,
-      riskLevel: transaction.riskLevel,
-      detectedAt: now.toISOString(),
-    },
-    createdAt: now,
-    updatedAt: now,
+    txHash: transaction.txHash,
+    amount: transaction.amountUSD,
+    threshold: SAR_THRESHOLD_USD,
+    riskLevel: transaction.riskLevel,
+    riskScore: transaction.riskScore,
+    senderAddress: transaction.senderAddress,
+    receiverAddress: transaction.receiverAddress,
+    asset: transaction.asset,
+    network: transaction.network,
+    reportedAt: new Date().toISOString(),
   };
 
-  complianceReports.set(report.id, report);
-
-  logger.info('SAR generated', {
-    reportId: report.id,
-    transactionId: transaction.id,
-    amount: transaction.amountUSD,
+  const record = await prisma.complianceReport.create({
+    data: {
+      reportType: ReportType.SAR,
+      transactionId: transaction.id,
+      status: ComplianceStatus.PENDING,
+      narrative,
+      findings,
+    },
   });
 
-  return report;
+  logger.info('SAR generated', { reportId: record.id, transactionId: transaction.id });
+  return mapPrismaReport(record);
 }
 
 /**
  * Generates a Currency Transaction Report (CTR) for a transaction.
  */
 export async function generateCTR(transaction: Transaction): Promise<ComplianceReport> {
-  const now = new Date();
-  const report: ComplianceReport = {
-    id: uuidv4(),
-    reportType: ReportType.CTR,
+  const narrative = buildCTRNarrative(transaction);
+  const findings = {
     transactionId: transaction.id,
-    status: ComplianceStatus.PENDING,
-    narrative: buildCTRNarrative(transaction),
-    findings: {
-      transactionId: transaction.id,
-      txHash: transaction.txHash,
-      amount: transaction.amountUSD,
-      threshold: CTR_THRESHOLD_USD,
-      senderAddress: transaction.senderAddress,
-      receiverAddress: transaction.receiverAddress,
-      asset: transaction.asset,
-      network: transaction.network,
-      reportedAt: now.toISOString(),
-    },
-    createdAt: now,
-    updatedAt: now,
+    txHash: transaction.txHash,
+    amount: transaction.amountUSD,
+    threshold: CTR_THRESHOLD_USD,
+    asset: transaction.asset,
+    network: transaction.network,
+    senderAddress: transaction.senderAddress,
+    receiverAddress: transaction.receiverAddress,
+    reportedAt: new Date().toISOString(),
   };
 
-  complianceReports.set(report.id, report);
-
-  logger.info('CTR generated', {
-    reportId: report.id,
-    transactionId: transaction.id,
-    amount: transaction.amountUSD,
+  const record = await prisma.complianceReport.create({
+    data: {
+      reportType: ReportType.CTR,
+      transactionId: transaction.id,
+      status: ComplianceStatus.PENDING,
+      narrative,
+      findings,
+    },
   });
 
-  return report;
+  logger.info('CTR generated', { reportId: record.id, transactionId: transaction.id });
+  return mapPrismaReport(record);
 }
 
 /**
- * Checks FATF Recommendation 16 Travel Rule compliance and generates a report.
+ * Generates a Travel Rule compliance report for a transaction.
  */
 export async function checkTravelRule(
   transaction: Transaction
 ): Promise<ComplianceReport> {
-  const now = new Date();
-
-  // Build travel rule data record
-  const travelRule: TravelRuleData = {
-    id: uuidv4(),
+  const isCompliant = false; // Requires VASP counterparty data in production
+  const findings = {
     transactionId: transaction.id,
-    originatorName: 'Unknown Originator',
-    originatorAddress: transaction.senderAddress,
-    originatorVASP: 'Unknown VASP',
-    originatorVASPId: 'VASP-UNKNOWN',
-    beneficiaryName: 'Unknown Beneficiary',
-    beneficiaryAddress: transaction.receiverAddress,
-    beneficiaryVASP: 'Unknown VASP',
-    beneficiaryVASPId: 'VASP-UNKNOWN',
-    transferAmount: transaction.amount,
-    transferAsset: transaction.asset,
-    transferAmountUSD: transaction.amountUSD,
-    isCompliant: false,
-    complianceNotes:
-      'Originator and beneficiary information pending VASP verification',
-    createdAt: now,
+    txHash: transaction.txHash,
+    amount: transaction.amountUSD,
+    threshold: TRAVEL_RULE_THRESHOLD_USD,
+    fatfRecommendation: 'Recommendation 16',
+    isCompliant,
+    senderAddress: transaction.senderAddress,
+    receiverAddress: transaction.receiverAddress,
+    note: 'VASP originator/beneficiary information required for full compliance',
   };
 
-  travelRuleRecords.set(travelRule.id, travelRule);
-
-  const report: ComplianceReport = {
-    id: uuidv4(),
-    reportType: ReportType.TRAVEL_RULE,
-    transactionId: transaction.id,
-    status: ComplianceStatus.UNDER_REVIEW,
-    narrative: buildTravelRuleNarrative(transaction, travelRule),
-    findings: {
-      travelRuleId: travelRule.id,
+  const record = await prisma.complianceReport.create({
+    data: {
+      reportType: ReportType.TRAVEL_RULE,
       transactionId: transaction.id,
-      transferAmountUSD: transaction.amountUSD,
-      threshold: TRAVEL_RULE_THRESHOLD_USD,
-      originatorAddress: travelRule.originatorAddress,
-      beneficiaryAddress: travelRule.beneficiaryAddress,
-      isCompliant: travelRule.isCompliant,
-      fatfRecommendation: 'Recommendation 16',
-      checkedAt: now.toISOString(),
+      status: ComplianceStatus.UNDER_REVIEW,
+      narrative: buildTravelRuleNarrative(transaction),
+      findings,
     },
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  complianceReports.set(report.id, report);
-
-  logger.info('Travel Rule check completed', {
-    reportId: report.id,
-    transactionId: transaction.id,
-    isCompliant: travelRule.isCompliant,
   });
 
-  return report;
+  logger.info('Travel Rule check completed', {
+    reportId: record.id,
+    transactionId: transaction.id,
+    isCompliant,
+  });
+  return mapPrismaReport(record);
 }
 
-/**
- * Returns a paginated list of compliance reports.
- */
-export async function getComplianceReports(filter: {
-  page?: number;
-  pageSize?: number;
+export interface ComplianceReportFilter {
   transactionId?: string;
   reportType?: ReportType;
   status?: ComplianceStatus;
-}): Promise<{
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * Returns compliance reports with optional filtering and pagination.
+ */
+export async function getComplianceReports(filter?: ComplianceReportFilter): Promise<{
   data: ComplianceReport[];
   total: number;
   page: number;
   pageSize: number;
 }> {
-  let results = Array.from(complianceReports.values());
+  const page = filter?.page ?? 1;
+  const pageSize = filter?.pageSize ?? 20;
 
-  if (filter.transactionId) {
-    results = results.filter((r) => r.transactionId === filter.transactionId);
-  }
-  if (filter.reportType) {
-    results = results.filter((r) => r.reportType === filter.reportType);
-  }
-  if (filter.status) {
-    results = results.filter((r) => r.status === filter.status);
-  }
+  const where: Prisma.ComplianceReportWhereInput = {};
+  if (filter?.transactionId) where.transactionId = filter.transactionId;
+  if (filter?.reportType) where.reportType = filter.reportType;
+  if (filter?.status) where.status = filter.status;
 
-  results.sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-  );
+  const [total, records] = await Promise.all([
+    prisma.complianceReport.count({ where }),
+    prisma.complianceReport.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ]);
 
-  const total = results.length;
-  const page = filter.page ?? 1;
-  const pageSize = filter.pageSize ?? 20;
-  const start = (page - 1) * pageSize;
-
-  return {
-    data: results.slice(start, start + pageSize),
-    total,
-    page,
-    pageSize,
-  };
+  return { data: records.map(mapPrismaReport), total, page, pageSize };
 }
 
 /**
- * Returns a single compliance report by ID.
+ * Returns a single compliance report by ID, or null if not found.
  */
 export async function getComplianceReportById(
   id: string
 ): Promise<ComplianceReport | null> {
-  return complianceReports.get(id) ?? null;
+  const found = await prisma.complianceReport.findUnique({ where: { id } });
+  return found ? mapPrismaReport(found) : null;
 }
 
 // ---------------------------------------------------------------------------
-// Private helpers
+// Narrative builders
 // ---------------------------------------------------------------------------
 
-function buildSARNarrative(transaction: Transaction): string {
+function buildSARNarrative(tx: Transaction): string {
   return (
-    `Suspicious Activity Report: Transaction ${transaction.txHash} ` +
-    `involving ${transaction.asset} transfer of $${transaction.amountUSD.toFixed(2)} USD ` +
-    `from ${transaction.senderAddress} to ${transaction.receiverAddress} ` +
-    `on ${transaction.network} network. ` +
-    `Risk score: ${transaction.riskScore}. Risk level: ${transaction.riskLevel}. ` +
-    `Transaction amount exceeds SAR threshold of $${SAR_THRESHOLD_USD} USD.`
+    `Suspicious Activity Report — Transaction ${tx.txHash} flagged for ` +
+    `suspicious activity. Amount: $${tx.amountUSD.toLocaleString()} USD. ` +
+    `Sender: ${tx.senderAddress}. Receiver: ${tx.receiverAddress}. ` +
+    `Risk Level: ${tx.riskLevel}. Network: ${tx.network}.`
   );
 }
 
-function buildCTRNarrative(transaction: Transaction): string {
+function buildCTRNarrative(tx: Transaction): string {
   return (
-    `Currency Transaction Report: Cash-equivalent transaction ${transaction.txHash} ` +
-    `for $${transaction.amountUSD.toFixed(2)} USD in ${transaction.asset} ` +
-    `on ${transaction.network}. ` +
-    `Amount exceeds CTR threshold of $${CTR_THRESHOLD_USD} USD.`
+    `Currency Transaction Report — Transaction ${tx.txHash} exceeded the ` +
+    `reporting threshold of $${CTR_THRESHOLD_USD.toLocaleString()} USD. ` +
+    `Amount: $${tx.amountUSD.toLocaleString()} USD. Asset: ${tx.asset}. ` +
+    `Network: ${tx.network}.`
   );
 }
 
-function buildTravelRuleNarrative(
-  transaction: Transaction,
-  travelRule: TravelRuleData
-): string {
+function buildTravelRuleNarrative(tx: Transaction): string {
   return (
-    `FATF Travel Rule Check (Recommendation 16): Transfer of ` +
-    `${transaction.amount} ${transaction.asset} ($${transaction.amountUSD.toFixed(2)} USD) ` +
-    `from ${travelRule.originatorAddress} (${travelRule.originatorVASP}) ` +
-    `to ${travelRule.beneficiaryAddress} (${travelRule.beneficiaryVASP}). ` +
-    `Transfer amount exceeds Travel Rule threshold of $${TRAVEL_RULE_THRESHOLD_USD} USD. ` +
-    `Compliance status: ${travelRule.isCompliant ? 'COMPLIANT' : 'NON-COMPLIANT — pending VASP verification'}.`
+    `FATF Recommendation 16 Travel Rule — Transaction ${tx.txHash} exceeds ` +
+    `the $${TRAVEL_RULE_THRESHOLD_USD.toLocaleString()} USD threshold. ` +
+    `VASP originator and beneficiary information required. ` +
+    `Amount: $${tx.amountUSD.toLocaleString()} USD.`
   );
 }

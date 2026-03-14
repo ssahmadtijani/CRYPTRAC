@@ -4,6 +4,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+import { Prisma } from '@prisma/client';
 import {
   ExchangeTransaction,
   TaxableEvent,
@@ -11,67 +12,114 @@ import {
   CostBasisLot,
 } from '../types';
 import { logger } from '../utils/logger';
+import { prisma } from '../lib/prisma';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 export const USD_TO_NGN = 1550;
-const NIGERIAN_TAX_RATE = 0.10; // 10% flat rate
+const NIGERIAN_TAX_RATE = 0.10;
 const LONG_TERM_THRESHOLD_DAYS = 365;
-const HIGH_VALUE_NGN_THRESHOLD = 10_000_000; // ₦10M
+const HIGH_VALUE_NGN_THRESHOLD = 10_000_000;
+const MIN_LOT_AMOUNT = 0.000001; // Epsilon for floating-point lot consumption
 
 // ---------------------------------------------------------------------------
-// In-memory stores
+// Helpers: map Prisma records to app types
 // ---------------------------------------------------------------------------
 
-// userId → asset → FIFO lot queue
-const costBasisStore: Map<string, Map<string, CostBasisLot[]>> = new Map();
-
-// userId → taxable events
-const taxableEventStore: Map<string, TaxableEvent[]> = new Map();
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getUserLots(userId: string, asset: string): CostBasisLot[] {
-  if (!costBasisStore.has(userId)) {
-    costBasisStore.set(userId, new Map());
-  }
-  const userMap = costBasisStore.get(userId)!;
-  const key = asset.toUpperCase();
-  if (!userMap.has(key)) {
-    userMap.set(key, []);
-  }
-  return userMap.get(key)!;
+function mapPrismaTaxableEvent(e: {
+  id: string;
+  userId: string;
+  type: string;
+  asset: string;
+  amount: number;
+  proceedsUSD: number;
+  costBasisUSD: number;
+  gainLossUSD: number;
+  holdingPeriodDays: number;
+  isLongTerm: boolean;
+  exchange: string;
+  sourceTransaction: string;
+  timestamp: Date;
+  taxRate: number;
+  taxAmountUSD: number;
+  taxAmountNGN: number;
+  isFlagged: boolean;
+  createdAt: Date;
+}): TaxableEvent {
+  return {
+    id: e.id,
+    userId: e.userId,
+    type: e.type as TaxEventType,
+    asset: e.asset,
+    amount: e.amount,
+    proceedsUSD: e.proceedsUSD,
+    costBasisUSD: e.costBasisUSD,
+    gainLossUSD: e.gainLossUSD,
+    holdingPeriodDays: e.holdingPeriodDays,
+    isLongTerm: e.isLongTerm,
+    exchange: e.exchange,
+    sourceTransaction: e.sourceTransaction,
+    timestamp: e.timestamp,
+    taxRate: e.taxRate,
+    taxAmountUSD: e.taxAmountUSD,
+    taxAmountNGN: e.taxAmountNGN,
+    isFlagged: e.isFlagged,
+  };
 }
 
-function addLot(userId: string, lot: CostBasisLot): void {
-  const lots = getUserLots(userId, lot.asset);
-  lots.push(lot);
+// ---------------------------------------------------------------------------
+// FIFO lot management via Prisma
+// ---------------------------------------------------------------------------
+
+type LotWithId = CostBasisLot & { id: string };
+
+async function getUserLots(
+  userId: string,
+  asset: string
+): Promise<LotWithId[]> {
+  const records = await prisma.costBasisLot.findMany({
+    where: { userId, asset: asset.toUpperCase() },
+    orderBy: { acquiredAt: 'asc' },
+  });
+  return records.map((r): LotWithId => ({
+    id: r.id,
+    asset: r.asset,
+    amount: r.amount,
+    costPerUnit: r.costPerUnit,
+    totalCost: r.totalCost,
+    acquiredAt: r.acquiredAt,
+    exchange: r.exchange,
+  }));
+}
+
+async function addLot(userId: string, lot: CostBasisLot): Promise<void> {
+  await prisma.costBasisLot.create({
+    data: {
+      userId,
+      asset: lot.asset.toUpperCase(),
+      amount: lot.amount,
+      costPerUnit: lot.costPerUnit,
+      totalCost: lot.totalCost,
+      acquiredAt: lot.acquiredAt,
+      exchange: lot.exchange,
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-/**
- * Determines whether an exchange transaction is a taxable event.
- */
 export function classifyTransaction(tx: ExchangeTransaction): TaxEventType | null {
   switch (tx.type) {
     case 'BUY':
-      // Buying is not itself taxable; it creates a new cost basis lot
+    case 'DEPOSIT':
       return null;
     case 'SELL':
     case 'SWAP':
-      // Disposing of an asset triggers capital gains
-      return TaxEventType.CAPITAL_GAIN_SHORT; // refined later by holding period
-    case 'DEPOSIT':
-    case 'WITHDRAWAL':
-      // Own-wallet transfers not taxable
-      return null;
+      return TaxEventType.CAPITAL_GAIN_SHORT;
     case 'STAKING_REWARD':
       return TaxEventType.STAKING_REWARD;
     case 'MINING_REWARD':
@@ -84,16 +132,15 @@ export function classifyTransaction(tx: ExchangeTransaction): TaxEventType | nul
 }
 
 /**
- * Calculates FIFO cost basis for a disposal.
- * Returns the cost basis and average holding period, and mutates the lot queue.
+ * Calculates FIFO cost basis for a disposal using Prisma lot records.
  */
-export function calculateCostBasis(
+export async function calculateCostBasis(
   userId: string,
   asset: string,
   amount: number,
   disposalDate: Date
-): { totalCost: number; holdingPeriodDays: number } {
-  const lots = getUserLots(userId, asset);
+): Promise<{ totalCost: number; holdingPeriodDays: number }> {
+  const lots = await getUserLots(userId, asset);
 
   if (lots.length === 0) {
     return { totalCost: 0, holdingPeriodDays: 0 };
@@ -103,46 +150,44 @@ export function calculateCostBasis(
   let totalCost = 0;
   let earliestDate: Date | null = null;
 
-  // FIFO: consume from the front
-  while (remaining > 0 && lots.length > 0) {
-    const lot = lots[0];
-    const used = Math.min(remaining, lot.amount);
+  for (const lot of lots) {
+    if (remaining <= 0) break;
 
+    const used = Math.min(remaining, lot.amount);
     totalCost += used * lot.costPerUnit;
     if (!earliestDate) earliestDate = lot.acquiredAt;
 
-    lot.amount -= used;
-    lot.totalCost = lot.amount * lot.costPerUnit;
-    remaining -= used;
-
-    if (lot.amount <= 0.000001) {
-      lots.shift(); // lot exhausted
+    const newAmount = lot.amount - used;
+    if (newAmount <= MIN_LOT_AMOUNT) {
+      await prisma.costBasisLot.delete({ where: { id: lot.id } });
+    } else {
+      await prisma.costBasisLot.update({
+        where: { id: lot.id },
+        data: { amount: newAmount, totalCost: newAmount * lot.costPerUnit },
+      });
     }
+
+    remaining -= used;
   }
 
   const holdingPeriodDays = earliestDate
-    ? Math.floor((disposalDate.getTime() - earliestDate.getTime()) / (1000 * 60 * 60 * 24))
+    ? Math.floor(
+        (disposalDate.getTime() - earliestDate.getTime()) / (1000 * 60 * 60 * 24)
+      )
     : 0;
 
   return { totalCost, holdingPeriodDays };
 }
 
-/**
- * Computes gain/loss given proceeds and cost basis.
- */
 export function computeGainLoss(proceeds: number, costBasis: number): number {
   return proceeds - costBasis;
 }
 
-/**
- * Applies Nigerian crypto tax rates to produce a TaxableEvent.
- */
 export function calculateTax(event: Partial<TaxableEvent>): TaxableEvent {
   const gainLoss = event.gainLossUSD ?? 0;
-  const taxableAmount = Math.max(gainLoss, 0); // losses give zero tax
+  const taxableAmount = Math.max(gainLoss, 0);
   const taxAmountUSD = taxableAmount * NIGERIAN_TAX_RATE;
   const taxAmountNGN = taxAmountUSD * USD_TO_NGN;
-
   const isFlagged = taxAmountNGN > HIGH_VALUE_NGN_THRESHOLD;
 
   return {
@@ -156,25 +201,24 @@ export function calculateTax(event: Partial<TaxableEvent>): TaxableEvent {
 
 /**
  * Processes all exchange transactions for a user into TaxableEvents.
- * Re-runs from scratch each time (idempotent via replacement).
+ * Clears existing lots/events for this user and reprocesses from scratch.
  */
 export async function processAllTransactions(
   userId: string,
   transactions: ExchangeTransaction[]
 ): Promise<TaxableEvent[]> {
   // Reset state for this user
-  costBasisStore.delete(userId);
-  const events: TaxableEvent[] = [];
+  await prisma.costBasisLot.deleteMany({ where: { userId } });
+  await prisma.taxableEvent.deleteMany({ where: { userId } });
 
-  // Process in chronological order
+  const events: TaxableEvent[] = [];
   const sorted = [...transactions].sort(
     (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
   );
 
   for (const tx of sorted) {
     if (tx.type === 'BUY' || tx.type === 'DEPOSIT') {
-      // Record cost basis lot
-      addLot(userId, {
+      await addLot(userId, {
         asset: tx.asset,
         amount: tx.amount,
         costPerUnit: tx.pricePerUnit,
@@ -185,9 +229,12 @@ export async function processAllTransactions(
       continue;
     }
 
-    if (tx.type === 'STAKING_REWARD' || tx.type === 'MINING_REWARD' || tx.type === 'AIRDROP') {
-      // Income events: fair-market value at receipt = proceeds, cost basis = 0
-      addLot(userId, {
+    if (
+      tx.type === 'STAKING_REWARD' ||
+      tx.type === 'MINING_REWARD' ||
+      tx.type === 'AIRDROP'
+    ) {
+      await addLot(userId, {
         asset: tx.asset,
         amount: tx.amount,
         costPerUnit: tx.pricePerUnit,
@@ -223,7 +270,7 @@ export async function processAllTransactions(
     }
 
     if (tx.type === 'SELL' || tx.type === 'SWAP') {
-      const { totalCost, holdingPeriodDays } = calculateCostBasis(
+      const { totalCost, holdingPeriodDays } = await calculateCostBasis(
         userId,
         tx.asset,
         tx.amount,
@@ -257,7 +304,30 @@ export async function processAllTransactions(
     }
   }
 
-  taxableEventStore.set(userId, events);
+  // Persist taxable events
+  if (events.length > 0) {
+    await prisma.taxableEvent.createMany({
+      data: events.map((e) => ({
+        id: e.id,
+        userId: e.userId,
+        type: e.type,
+        asset: e.asset,
+        amount: e.amount,
+        proceedsUSD: e.proceedsUSD,
+        costBasisUSD: e.costBasisUSD,
+        gainLossUSD: e.gainLossUSD,
+        holdingPeriodDays: e.holdingPeriodDays,
+        isLongTerm: e.isLongTerm,
+        exchange: e.exchange,
+        sourceTransaction: e.sourceTransaction,
+        timestamp: e.timestamp,
+        taxRate: e.taxRate,
+        taxAmountUSD: e.taxAmountUSD,
+        taxAmountNGN: e.taxAmountNGN,
+        isFlagged: e.isFlagged,
+      })),
+    });
+  }
 
   logger.info('Transactions processed into taxable events', {
     userId,
@@ -277,43 +347,32 @@ export interface TaxableEventFilter {
   endDate?: Date;
 }
 
-/**
- * Returns taxable events for a user with optional filters.
- */
-export function getTaxableEvents(
+export async function getTaxableEvents(
   userId: string,
   filters?: TaxableEventFilter
-): TaxableEvent[] {
-  let events = taxableEventStore.get(userId) ?? [];
+): Promise<TaxableEvent[]> {
+  const where: Prisma.TaxableEventWhereInput = { userId };
 
-  if (!filters) return events;
-
-  if (filters.type) {
-    events = events.filter((e) => e.type === filters.type);
-  }
-  if (filters.asset) {
-    events = events.filter((e) => e.asset.toUpperCase() === filters.asset!.toUpperCase());
-  }
-  if (filters.exchange) {
-    events = events.filter((e) =>
-      e.exchange.toLowerCase() === filters.exchange!.toLowerCase()
-    );
-  }
-  if (filters.taxYear) {
-    events = events.filter((e) => e.timestamp.getFullYear() === filters.taxYear);
-  }
-  if (filters.startDate) {
-    events = events.filter((e) => e.timestamp >= filters.startDate!);
-  }
-  if (filters.endDate) {
-    events = events.filter((e) => e.timestamp <= filters.endDate!);
+  if (filters?.type) where.type = filters.type;
+  if (filters?.asset) where.asset = { equals: filters.asset, mode: 'insensitive' };
+  if (filters?.exchange)
+    where.exchange = { equals: filters.exchange, mode: 'insensitive' };
+  if (filters?.taxYear) {
+    const year = filters.taxYear;
+    where.timestamp = {
+      gte: new Date(`${year}-01-01`),
+      lt: new Date(`${year + 1}-01-01`),
+    };
+  } else if (filters?.startDate || filters?.endDate) {
+    where.timestamp = {
+      ...(filters.startDate ? { gte: filters.startDate } : {}),
+      ...(filters.endDate ? { lte: filters.endDate } : {}),
+    };
   }
 
-  return events;
-}
-
-/** Direct injection of taxable events (used by demo seeder) */
-export function injectTaxableEvents(userId: string, events: TaxableEvent[]): void {
-  const existing = taxableEventStore.get(userId) ?? [];
-  taxableEventStore.set(userId, [...existing, ...events]);
+  const records = await prisma.taxableEvent.findMany({
+    where,
+    orderBy: { timestamp: 'asc' },
+  });
+  return records.map(mapPrismaTaxableEvent);
 }

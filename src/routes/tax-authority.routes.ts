@@ -27,8 +27,8 @@ taxAuthorityRoutes.get(
   '/dashboard',
   async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const users = getAllUsers() as User[];
-      const dashboard = taxAssessmentService.getAggregateStats(users);
+      const users = (await getAllUsers()) as User[];
+      const dashboard = await taxAssessmentService.getAggregateStats(users);
       const response: ApiResponse<typeof dashboard> = {
         success: true,
         data: dashboard,
@@ -48,8 +48,8 @@ taxAuthorityRoutes.get(
   '/taxpayers',
   async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const users = getAllUsers() as User[];
-      const summaries = taxAssessmentService.getTaxpayerSummaries(users);
+      const users = (await getAllUsers()) as User[];
+      const summaries = await taxAssessmentService.getTaxpayerSummaries(users);
       const response: ApiResponse<typeof summaries> = {
         success: true,
         data: summaries,
@@ -71,7 +71,7 @@ taxAuthorityRoutes.get(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { userId } = req.params as { userId: string };
-      const users = getAllUsers() as User[];
+      const users = (await getAllUsers()) as User[];
       const user = users.find((u) => u.id === userId);
 
       if (!user) {
@@ -82,9 +82,11 @@ taxAuthorityRoutes.get(
         return;
       }
 
-      const assessments = taxAssessmentService.getUserAssessments(userId);
-      const events = taxEngineService.getTaxableEvents(userId);
-      const [summary] = taxAssessmentService.getTaxpayerSummaries([user]);
+      const [assessments, events, [summary]] = await Promise.all([
+        taxAssessmentService.getUserAssessments(userId),
+        taxEngineService.getTaxableEvents(userId),
+        taxAssessmentService.getTaxpayerSummaries([user]),
+      ]);
 
       const response: ApiResponse<{
         user: typeof user;
@@ -114,7 +116,7 @@ taxAuthorityRoutes.get(
   '/taxpayers/:userId/assessments',
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const assessments = taxAssessmentService.getUserAssessments(
+      const assessments = await taxAssessmentService.getUserAssessments(
         req.params.userId as string
       );
       const response: ApiResponse<typeof assessments> = {
@@ -136,7 +138,9 @@ taxAuthorityRoutes.get(
   '/taxpayers/:userId/events',
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const events = taxEngineService.getTaxableEvents(req.params.userId as string);
+      const events = await taxEngineService.getTaxableEvents(
+        req.params.userId as string
+      );
       const response: ApiResponse<typeof events> = {
         success: true,
         data: events,
@@ -157,8 +161,8 @@ taxAuthorityRoutes.get(
   '/exchanges',
   async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const users = getAllUsers() as User[];
-      const dashboard = taxAssessmentService.getAggregateStats(users);
+      const users = (await getAllUsers()) as User[];
+      const dashboard = await taxAssessmentService.getAggregateStats(users);
       const response: ApiResponse<typeof dashboard.byExchange> = {
         success: true,
         data: dashboard.byExchange,
@@ -178,10 +182,12 @@ taxAuthorityRoutes.get(
   '/reports/generate',
   async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const users = getAllUsers() as User[];
-      const dashboard = taxAssessmentService.getAggregateStats(users);
-      const summaries = taxAssessmentService.getTaxpayerSummaries(users);
-      const allAssessments = taxAssessmentService.getAllAssessments();
+      const users = (await getAllUsers()) as User[];
+      const [dashboard, summaries, allAssessments] = await Promise.all([
+        taxAssessmentService.getAggregateStats(users),
+        taxAssessmentService.getTaxpayerSummaries(users),
+        taxAssessmentService.getAllAssessments(),
+      ]);
 
       const report = {
         generatedAt: new Date().toISOString(),
@@ -211,7 +217,7 @@ taxAuthorityRoutes.get(
   '/flagged',
   async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const flagged = taxAssessmentService.getAllAssessments({
+      const flagged = await taxAssessmentService.getAllAssessments({
         minTaxNGN: 1_000_000,
       });
 

@@ -4,9 +4,10 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { User, UserRole, ExchangeTransaction, TaxAssessment, AssessmentStatus } from '../types';
-import { injectUser } from './auth.service';
-import { connectExchange, injectTransactions } from './exchange.service';
+import bcrypt from 'bcryptjs';
+import { UserRole, ExchangeTransaction } from '../types';
+import { prisma } from '../lib/prisma';
+import { connectExchange } from './exchange.service';
 import { processAllTransactions } from './tax-engine.service';
 import { generateAssessment } from './tax-assessment.service';
 import { logger } from '../utils/logger';
@@ -14,8 +15,6 @@ import { logger } from '../utils/logger';
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-// USD_TO_NGN is the single source of truth in tax-engine.service.ts
 
 const DEMO_USERS: Array<{
   firstName: string;
@@ -203,33 +202,34 @@ export async function seedDemoData(): Promise<{
 
   logger.info('Starting demo data seed...');
 
-  const now = new Date();
   const startOf2025 = new Date('2025-01-01');
   const endOf2025 = new Date('2025-12-31');
 
   let assessmentsGenerated = 0;
   const createdUserIds: string[] = [];
 
+  // Clean up existing demo users to allow re-seeding
+  await cleanupDemoData();
+
+  const demoPassword = await bcrypt.hash('Demo@2025!', 10);
+
   for (const profile of DEMO_USERS) {
     const userId = uuidv4();
 
-    // Build user object
-    const user: User = {
-      id: userId,
-      email: profile.email,
-      passwordHash: '$2b$12$demoHashNotUsableForLogin_', // demo users cannot log in via password — use the real register endpoint
-      firstName: profile.firstName,
-      lastName: profile.lastName,
-      role: profile.role,
-      isActive: true,
-      createdAt: randomDate(new Date('2024-06-01'), new Date('2024-12-31')),
-      updatedAt: new Date(),
-    };
+    await prisma.user.create({
+      data: {
+        id: userId,
+        email: profile.email,
+        passwordHash: demoPassword,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        role: profile.role,
+        isActive: true,
+      },
+    });
 
-    injectUser(user);
     createdUserIds.push(userId);
 
-    // Connect exchanges and generate transaction data
     const txCountMap: Record<'LOW' | 'MEDIUM' | 'HIGH', number> = {
       LOW: 15,
       MEDIUM: 40,
@@ -248,10 +248,27 @@ export async function seedDemoData(): Promise<{
         endOf2025
       );
 
-      injectTransactions(userId, exchangeName, txs);
+      await prisma.exchangeTransaction.createMany({
+        data: txs.map((tx) => ({
+          userId,
+          exchangeId: tx.exchangeId,
+          exchangeName: tx.exchangeName,
+          externalTxId: tx.externalTxId,
+          type: tx.type,
+          asset: tx.asset,
+          amount: tx.amount,
+          pricePerUnit: tx.pricePerUnit,
+          totalValueUSD: tx.totalValueUSD,
+          fee: tx.fee ?? 0,
+          feeUSD: tx.feeUSD ?? 0,
+          counterAsset: tx.counterAsset ?? null,
+          counterAmount: tx.counterAmount ?? null,
+          walletAddress: tx.walletAddress ?? null,
+          timestamp: tx.timestamp,
+        })),
+      });
     }
 
-    // Generate assessments for users with exchanges
     if (profile.exchanges.length > 0) {
       try {
         await generateAssessment(userId, 2025, 'Q1');
@@ -274,4 +291,41 @@ export async function seedDemoData(): Promise<{
   });
 
   return { usersCreated: createdUserIds.length, assessmentsGenerated };
+}
+
+/**
+ * Removes all demo users and their associated data in the correct FK order.
+ */
+async function cleanupDemoData(): Promise<void> {
+  const demoEmails = DEMO_USERS.map((u) => u.email);
+  const demoUsers = await prisma.user.findMany({
+    where: { email: { in: demoEmails } },
+    select: { id: true },
+  });
+  const demoUserIds = demoUsers.map((u) => u.id);
+
+  if (demoUserIds.length === 0) return;
+
+  // Find all transaction IDs belonging to demo users for FK-safe compliance report cleanup
+  const demoTxs = await prisma.transaction.findMany({
+    where: { userId: { in: demoUserIds } },
+    select: { id: true },
+  });
+  const demoTxIds = demoTxs.map((t) => t.id);
+
+  await prisma.taxAssessment.deleteMany({ where: { userId: { in: demoUserIds } } });
+  await prisma.taxableEvent.deleteMany({ where: { userId: { in: demoUserIds } } });
+  await prisma.costBasisLot.deleteMany({ where: { userId: { in: demoUserIds } } });
+  await prisma.taxEvent.deleteMany({ where: { userId: { in: demoUserIds } } });
+  await prisma.exchangeTransaction.deleteMany({ where: { userId: { in: demoUserIds } } });
+  await prisma.exchangeConnection.deleteMany({ where: { userId: { in: demoUserIds } } });
+  await prisma.complianceReport.deleteMany({ where: { reviewedById: { in: demoUserIds } } });
+  if (demoTxIds.length > 0) {
+    await prisma.complianceReport.deleteMany({
+      where: { transactionId: { in: demoTxIds } },
+    });
+  }
+  await prisma.transaction.deleteMany({ where: { userId: { in: demoUserIds } } });
+  await prisma.wallet.deleteMany({ where: { userId: { in: demoUserIds } } });
+  await prisma.user.deleteMany({ where: { id: { in: demoUserIds } } });
 }

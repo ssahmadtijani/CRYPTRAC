@@ -12,6 +12,7 @@ import {
 } from '../types';
 import { logger } from '../utils/logger';
 import { USD_TO_NGN } from './tax-engine.service';
+import { prisma } from '../lib/prisma';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -19,11 +20,6 @@ import { USD_TO_NGN } from './tax-engine.service';
 
 const EXCHANGE_NAMES = ['Binance', 'Luno', 'Quidax'] as const;
 export type ExchangeName = (typeof EXCHANGE_NAMES)[number];
-
-// USD_TO_NGN is exported from tax-engine.service.ts as the single source of truth
-// In-memory stores
-const connections: Map<string, ExchangeConnection[]> = new Map();
-const exchangeTransactions: Map<string, ExchangeTransaction[]> = new Map();
 
 // ---------------------------------------------------------------------------
 // Price reference table (approximate USD prices)
@@ -49,11 +45,75 @@ function randomBetween(min: number, max: number): number {
 }
 
 function randomDate(start: Date, end: Date): Date {
-  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+  return new Date(
+    start.getTime() + Math.random() * (end.getTime() - start.getTime())
+  );
 }
 
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// ---------------------------------------------------------------------------
+// Helpers: map Prisma records to app types
+// ---------------------------------------------------------------------------
+
+function mapPrismaConnection(c: {
+  id: string;
+  userId: string;
+  exchangeName: string;
+  status: string;
+  lastSyncedAt: Date | null;
+  transactionCount: number;
+  connectedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}): ExchangeConnection {
+  return {
+    userId: c.userId,
+    exchangeName: c.exchangeName,
+    connectedAt: c.connectedAt,
+    lastSyncedAt: c.lastSyncedAt ?? undefined,
+    status: c.status as ExchangeConnection['status'],
+    transactionCount: c.transactionCount,
+  };
+}
+
+function mapPrismaExchangeTx(t: {
+  id: string;
+  userId: string;
+  exchangeId: string;
+  exchangeName: string;
+  externalTxId: string;
+  type: string;
+  asset: string;
+  amount: number;
+  pricePerUnit: number;
+  totalValueUSD: number;
+  fee: number;
+  feeUSD: number;
+  counterAsset: string | null;
+  counterAmount: number | null;
+  walletAddress: string | null;
+  timestamp: Date;
+  createdAt: Date;
+}): ExchangeTransaction {
+  return {
+    exchangeId: t.exchangeId,
+    exchangeName: t.exchangeName,
+    externalTxId: t.externalTxId,
+    type: t.type as ExchangeTransactionType,
+    asset: t.asset,
+    amount: t.amount,
+    pricePerUnit: t.pricePerUnit,
+    totalValueUSD: t.totalValueUSD,
+    fee: t.fee,
+    feeUSD: t.feeUSD,
+    counterAsset: t.counterAsset ?? undefined,
+    counterAmount: t.counterAmount ?? undefined,
+    walletAddress: t.walletAddress ?? undefined,
+    timestamp: t.timestamp,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -136,7 +196,8 @@ function generateLunoTransactions(
       fee: fee / pricePerUnit,
       feeUSD: fee,
       counterAsset: pair.counter,
-      counterAmount: pair.counter === 'NGN' ? totalValueUSD * USD_TO_NGN : totalValueUSD,
+      counterAmount:
+        pair.counter === 'NGN' ? totalValueUSD * USD_TO_NGN : totalValueUSD,
       walletAddress: `luno-${userId.slice(0, 12)}`,
       timestamp: randomDate(startDate, endDate),
     };
@@ -177,7 +238,8 @@ function generateQuidaxTransactions(
       fee: fee / pricePerUnit,
       feeUSD: fee,
       counterAsset: pair.counter,
-      counterAmount: pair.counter === 'NGN' ? totalValueUSD * USD_TO_NGN : totalValueUSD,
+      counterAmount:
+        pair.counter === 'NGN' ? totalValueUSD * USD_TO_NGN : totalValueUSD,
       walletAddress: `quidax-${userId.slice(0, 12)}`,
       timestamp: randomDate(startDate, endDate),
     };
@@ -248,43 +310,39 @@ export async function connectExchange(
     throw new Error(`Unknown exchange: ${exchangeName}`);
   }
 
-  const userConnections = connections.get(userId) ?? [];
-  const existing = userConnections.find((c) => c.exchangeName === exchangeName);
-  if (existing) {
-    return existing;
-  }
-
-  const connection: ExchangeConnection = {
-    userId,
-    exchangeName,
-    connectedAt: new Date(),
-    status: 'ACTIVE',
-    transactionCount: 0,
-  };
-
-  userConnections.push(connection);
-  connections.set(userId, userConnections);
+  const record = await prisma.exchangeConnection.upsert({
+    where: { userId_exchangeName: { userId, exchangeName } },
+    create: { userId, exchangeName, status: 'ACTIVE', transactionCount: 0 },
+    update: {},
+  });
 
   logger.info('Exchange connected', { userId, exchangeName });
-  return connection;
+  return mapPrismaConnection(record);
 }
 
-export function getConnectedExchanges(userId: string): ExchangeConnection[] {
-  return connections.get(userId) ?? [];
+export async function getConnectedExchanges(
+  userId: string
+): Promise<ExchangeConnection[]> {
+  const records = await prisma.exchangeConnection.findMany({ where: { userId } });
+  return records.map(mapPrismaConnection);
 }
 
 export async function syncExchangeData(
   userId: string,
   exchangeName: string
 ): Promise<{ synced: number; connection: ExchangeConnection }> {
-  const userConnections = connections.get(userId) ?? [];
-  const connection = userConnections.find((c) => c.exchangeName === exchangeName);
+  const conn = await prisma.exchangeConnection.findUnique({
+    where: { userId_exchangeName: { userId, exchangeName } },
+  });
 
-  if (!connection) {
+  if (!conn) {
     throw new Error(`Exchange ${exchangeName} is not connected for this user`);
   }
 
-  connection.status = 'SYNCING';
+  await prisma.exchangeConnection.update({
+    where: { id: conn.id },
+    data: { status: 'SYNCING' },
+  });
 
   const adapter = adapters[exchangeName as ExchangeName];
   const startDate = new Date('2025-01-01');
@@ -292,37 +350,61 @@ export async function syncExchangeData(
 
   const txs = await adapter.fetchTransactions(userId, startDate, endDate);
 
-  const key = `${userId}:${exchangeName}`;
-  exchangeTransactions.set(key, txs);
+  // Store transactions (upsert not supported easily without unique externalTxId+userId)
+  // Use createMany with skipDuplicates
+  await prisma.exchangeTransaction.createMany({
+    data: txs.map((tx) => ({
+      userId,
+      exchangeId: tx.exchangeId,
+      exchangeName: tx.exchangeName,
+      externalTxId: tx.externalTxId,
+      type: tx.type,
+      asset: tx.asset,
+      amount: tx.amount,
+      pricePerUnit: tx.pricePerUnit,
+      totalValueUSD: tx.totalValueUSD,
+      fee: tx.fee ?? 0,
+      feeUSD: tx.feeUSD ?? 0,
+      counterAsset: tx.counterAsset ?? null,
+      counterAmount: tx.counterAmount ?? null,
+      walletAddress: tx.walletAddress ?? null,
+      timestamp: tx.timestamp,
+    })),
+    skipDuplicates: true,
+  });
 
-  connection.lastSyncedAt = new Date();
-  connection.status = 'ACTIVE';
-  connection.transactionCount = txs.length;
+  const updated = await prisma.exchangeConnection.update({
+    where: { id: conn.id },
+    data: {
+      status: 'ACTIVE',
+      lastSyncedAt: new Date(),
+      transactionCount: txs.length,
+    },
+  });
 
   logger.info('Exchange data synced', { userId, exchangeName, count: txs.length });
-
-  return { synced: txs.length, connection };
+  return { synced: txs.length, connection: mapPrismaConnection(updated) };
 }
 
-export function getAllExchangeTransactions(userId: string): ExchangeTransaction[] {
-  const userConnections = connections.get(userId) ?? [];
-  const all: ExchangeTransaction[] = [];
-
-  for (const conn of userConnections) {
-    const key = `${userId}:${conn.exchangeName}`;
-    const txs = exchangeTransactions.get(key) ?? [];
-    all.push(...txs);
-  }
-
-  return all.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+export async function getAllExchangeTransactions(
+  userId: string
+): Promise<ExchangeTransaction[]> {
+  const records = await prisma.exchangeTransaction.findMany({
+    where: { userId },
+    orderBy: { timestamp: 'asc' },
+  });
+  return records.map(mapPrismaExchangeTx);
 }
 
-export function getExchangeTransactions(
+export async function getExchangeTransactions(
   userId: string,
   exchangeName: string
-): ExchangeTransaction[] {
-  const key = `${userId}:${exchangeName}`;
-  return exchangeTransactions.get(key) ?? [];
+): Promise<ExchangeTransaction[]> {
+  const records = await prisma.exchangeTransaction.findMany({
+    where: { userId, exchangeName },
+    orderBy: { timestamp: 'asc' },
+  });
+  return records.map(mapPrismaExchangeTx);
 }
 
 export async function getExchangeBalances(
@@ -330,26 +412,6 @@ export async function getExchangeBalances(
   exchangeName: string
 ): Promise<ExchangeBalance[]> {
   const adapter = adapters[exchangeName as ExchangeName];
-  if (!adapter) {
-    throw new Error(`Unknown exchange: ${exchangeName}`);
-  }
+  if (!adapter) throw new Error(`Unknown exchange: ${exchangeName}`);
   return adapter.fetchBalances(userId);
-}
-
-/** Directly inject transactions (used by demo seeder) */
-export function injectTransactions(
-  userId: string,
-  exchangeName: string,
-  txs: ExchangeTransaction[]
-): void {
-  const key = `${userId}:${exchangeName}`;
-  const existing = exchangeTransactions.get(key) ?? [];
-  exchangeTransactions.set(key, [...existing, ...txs]);
-
-  const userConnections = connections.get(userId) ?? [];
-  const conn = userConnections.find((c) => c.exchangeName === exchangeName);
-  if (conn) {
-    conn.transactionCount = (exchangeTransactions.get(key) ?? []).length;
-    conn.lastSyncedAt = new Date();
-  }
 }
