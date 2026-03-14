@@ -12,6 +12,8 @@ import Compliance from './pages/Compliance';
 import Exchanges from './pages/Exchanges';
 import Tax from './pages/Tax';
 import Authority from './pages/Authority';
+import Cases from './pages/Cases';
+import CaseDetail from './pages/CaseDetail';
 import './App.css';
 
 export default function App() {
@@ -36,6 +38,8 @@ export default function App() {
             <Route path="/transactions/:id" element={<TransactionDetail />} />
             <Route path="/wallets" element={<Wallets />} />
             <Route path="/compliance" element={<Compliance />} />
+            <Route path="/cases" element={<Cases />} />
+            <Route path="/cases/:id" element={<CaseDetail />} />
             <Route path="/exchanges" element={<Exchanges />} />
             <Route path="/tax" element={<Tax />} />
             <Route path="/authority" element={<Authority />} />

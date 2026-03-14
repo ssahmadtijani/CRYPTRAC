@@ -7,6 +7,7 @@ const navItems = [
   { to: '/transactions', label: 'Transactions', icon: '↔' },
   { to: '/wallets', label: 'Wallets', icon: '🔑' },
   { to: '/compliance', label: 'Compliance', icon: '📋' },
+  { to: '/cases', label: 'Cases', icon: '🗂️' },
   { to: '/exchanges', label: 'Exchanges', icon: '📊' },
   { to: '/tax', label: 'Tax Summary', icon: '💰' },
 ];

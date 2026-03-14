@@ -1,5 +1,118 @@
 // Mirror of backend src/types/index.ts
 
+// ---------------------------------------------------------------------------
+// Case Management Types
+// ---------------------------------------------------------------------------
+
+export enum CaseStatus {
+  OPEN = 'OPEN',
+  IN_PROGRESS = 'IN_PROGRESS',
+  ESCALATED = 'ESCALATED',
+  RESOLVED = 'RESOLVED',
+  CLOSED = 'CLOSED',
+}
+
+export enum CasePriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
+
+export enum CaseCategory {
+  SUSPICIOUS_ACTIVITY = 'SUSPICIOUS_ACTIVITY',
+  HIGH_RISK_TRANSACTION = 'HIGH_RISK_TRANSACTION',
+  SANCTIONS_HIT = 'SANCTIONS_HIT',
+  TRAVEL_RULE_VIOLATION = 'TRAVEL_RULE_VIOLATION',
+  UNUSUAL_PATTERN = 'UNUSUAL_PATTERN',
+  LARGE_TRANSACTION = 'LARGE_TRANSACTION',
+  MANUAL_REVIEW = 'MANUAL_REVIEW',
+}
+
+export interface Case {
+  id: string;
+  caseNumber: string;
+  title: string;
+  description: string;
+  status: CaseStatus;
+  priority: CasePriority;
+  category: CaseCategory;
+  assignedTo?: string;
+  transactionIds: string[];
+  walletAddresses: string[];
+  riskScore: number;
+  findings: Record<string, unknown>;
+  resolution?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string;
+}
+
+export interface CaseNote {
+  id: string;
+  caseId: string;
+  authorId: string;
+  content: string;
+  isInternal: boolean;
+  createdAt: string;
+}
+
+export interface CaseTimelineEntry {
+  id: string;
+  caseId: string;
+  action: string;
+  description: string;
+  performedBy: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface CaseDashboardMetrics {
+  totalCases: number;
+  openCases: number;
+  inProgressCases: number;
+  escalatedCases: number;
+  resolvedCases: number;
+  closedCases: number;
+  criticalPriorityCases: number;
+  highPriorityCases: number;
+  averageResolutionTimeHours: number;
+  casesByCategory: Record<string, number>;
+}
+
+export interface CreateCaseRequest {
+  title: string;
+  description: string;
+  priority: CasePriority;
+  category: CaseCategory;
+  transactionIds?: string[];
+  walletAddresses?: string[];
+  riskScore?: number;
+  assignedTo?: string;
+}
+
+export interface UpdateCaseRequest {
+  title?: string;
+  description?: string;
+  priority?: CasePriority;
+  category?: CaseCategory;
+  assignedTo?: string;
+  transactionIds?: string[];
+  walletAddresses?: string[];
+  riskScore?: number;
+  resolution?: string;
+}
+
+export interface CaseFilterParams {
+  status?: CaseStatus;
+  priority?: CasePriority;
+  category?: CaseCategory;
+  assignedTo?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 export enum TransactionType {
   TRANSFER = 'TRANSFER',
   TRADE = 'TRADE',
