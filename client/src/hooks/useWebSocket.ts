@@ -19,7 +19,14 @@ export type WSEventType =
   | 'PATTERN_DETECTED'
   | 'KPI_UPDATE'
   | 'WALLET_SANCTIONED'
-  | 'SYSTEM_ALERT';
+  | 'SYSTEM_ALERT'
+  | 'TRAVEL_RULE_UPDATE'
+  | 'STR_SAR_CREATED'
+  | 'STR_SAR_FILED'
+  | 'FILING_OVERDUE'
+  | 'USER_ROLE_CHANGED'
+  | 'USER_SUSPENDED'
+  | 'SECURITY_ALERT';
 
 export interface WSEvent {
   type: WSEventType;

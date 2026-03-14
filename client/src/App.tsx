@@ -21,6 +21,9 @@ import Analytics from './pages/Analytics';
 import TravelRule from './pages/TravelRule';
 import STRSARReports from './pages/STRSARReports';
 import RegulatoryFilings from './pages/RegulatoryFilings';
+import UserAdmin from './pages/UserAdmin';
+import RoleManagement from './pages/RoleManagement';
+import AuditDashboard from './pages/AuditDashboard';
 import './App.css';
 
 export default function App() {
@@ -58,6 +61,9 @@ export default function App() {
             <Route path="/travel-rule" element={<TravelRule />} />
             <Route path="/str-sar" element={<STRSARReports />} />
             <Route path="/filings" element={<RegulatoryFilings />} />
+            <Route path="/admin/users" element={<UserAdmin />} />
+            <Route path="/admin/roles" element={<RoleManagement />} />
+            <Route path="/admin/audit" element={<AuditDashboard />} />
           </Route>
 
           {/* Fallback */}

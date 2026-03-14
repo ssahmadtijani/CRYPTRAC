@@ -164,6 +164,51 @@ export function initializeWebSocket(server: HttpServer): WebSocketServer {
     });
   });
 
+  // User role changed → ADMIN
+  eventBus.on('user:role-changed', (data: unknown) => {
+    sendToRoles([UserRole.ADMIN], {
+      type: WSEventType.USER_ROLE_CHANGED,
+      payload: data,
+      timestamp: new Date(),
+    });
+  });
+
+  // User suspended → ADMIN
+  eventBus.on('user:suspended', (data: unknown) => {
+    sendToRoles([UserRole.ADMIN], {
+      type: WSEventType.USER_SUSPENDED,
+      payload: data,
+      timestamp: new Date(),
+    });
+  });
+
+  // User deactivated → ADMIN
+  eventBus.on('user:deactivated', (data: unknown) => {
+    sendToRoles([UserRole.ADMIN], {
+      type: WSEventType.SECURITY_ALERT,
+      payload: data,
+      timestamp: new Date(),
+    });
+  });
+
+  // Security: failed login → ADMIN
+  eventBus.on('security:failed-login', (data: unknown) => {
+    sendToRoles([UserRole.ADMIN], {
+      type: WSEventType.SECURITY_ALERT,
+      payload: data,
+      timestamp: new Date(),
+    });
+  });
+
+  // Security: account locked → ADMIN
+  eventBus.on('security:account-locked', (data: unknown) => {
+    sendToRoles([UserRole.ADMIN], {
+      type: WSEventType.SECURITY_ALERT,
+      payload: data,
+      timestamp: new Date(),
+    });
+  });
+
   logger.info('WebSocket server initialized');
   return wss;
 }

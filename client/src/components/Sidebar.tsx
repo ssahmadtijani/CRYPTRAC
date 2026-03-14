@@ -121,6 +121,40 @@ export default function Sidebar() {
             </NavLink>
           </>
         )}
+
+        {(user?.role === UserRole.ADMIN || user?.role === UserRole.AUDITOR) && (
+          <>
+            <div
+              style={{
+                padding: '0.75rem 1rem 0.25rem',
+                fontSize: '0.7rem',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+                borderTop: '1px solid var(--border)',
+                marginTop: '0.5rem',
+              }}
+            >
+              Administration
+            </div>
+            {user?.role === UserRole.ADMIN && (
+              <NavLink to="/admin/users" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+                <span className="sidebar-icon">👥</span>
+                <span>Users</span>
+              </NavLink>
+            )}
+            {user?.role === UserRole.ADMIN && (
+              <NavLink to="/admin/roles" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+                <span className="sidebar-icon">🔑</span>
+                <span>Roles</span>
+              </NavLink>
+            )}
+            <NavLink to="/admin/audit" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+              <span className="sidebar-icon">📊</span>
+              <span>Audit Dashboard</span>
+            </NavLink>
+          </>
+        )}
       </nav>
 
       <div className="sidebar-footer">

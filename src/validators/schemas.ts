@@ -12,6 +12,8 @@ import {
   CasePriority,
   CaseCategory,
   AuditAction,
+  UserStatus,
+  Permission,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -265,3 +267,83 @@ export const exportQuerySchema = z.object({
   endDate: z.coerce.date().optional(),
   userId: z.string().optional(),
 });
+
+// ---------------------------------------------------------------------------
+// Phase 3D — User Admin Schemas
+// ---------------------------------------------------------------------------
+
+export const createUserAdminSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  role: z.nativeEnum(UserRole),
+  department: z.string().max(100).optional(),
+  phone: z.string().max(50).optional(),
+});
+
+export const updateUserProfileSchema = z.object({
+  firstName: z.string().min(1).max(100).optional(),
+  lastName: z.string().min(1).max(100).optional(),
+  department: z.string().max(100).optional(),
+  phone: z.string().max(50).optional(),
+});
+
+export const changeUserRoleSchema = z.object({
+  role: z.nativeEnum(UserRole),
+});
+
+export const suspendUserSchema = z.object({
+  reason: z.string().min(1, 'Reason is required').max(500),
+});
+
+export const lockUserSchema = z.object({
+  durationMs: z.number().int().positive().optional(),
+});
+
+export const resetPasswordSchema = z.object({
+  newPassword: z.string().min(8, 'Password must be at least 8 characters').max(128),
+});
+
+export const userFilterSchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+  role: z.nativeEnum(UserRole).optional(),
+  status: z.nativeEnum(UserStatus).optional(),
+  department: z.string().optional(),
+  search: z.string().optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3D — Role-Permission Schemas
+// ---------------------------------------------------------------------------
+
+export const updateRolePermissionsSchema = z.object({
+  permissions: z.array(z.nativeEnum(Permission)),
+});
+
+export const grantRevokePermissionSchema = z.object({
+  permission: z.nativeEnum(Permission),
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3D — Enhanced Audit Schemas
+// ---------------------------------------------------------------------------
+
+export const auditEnhancedFilterSchema = z.object({
+  userId: z.string().optional(),
+  action: z.nativeEnum(AuditAction).optional(),
+  entityType: z.string().optional(),
+  severity: z.enum(['CRITICAL', 'WARNING', 'INFO']).optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  search: z.string().optional(),
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+  sortBy: z.enum(['timestamp', 'action', 'severity']).default('timestamp'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export type CreateUserAdminInput = z.infer<typeof createUserAdminSchema>;
+export type UpdateUserProfileInput = z.infer<typeof updateUserProfileSchema>;
+export type AuditEnhancedFilterInput = z.infer<typeof auditEnhancedFilterSchema>;

@@ -22,6 +22,13 @@ const EVENT_ICONS: Record<WSEventType, string> = {
   KPI_UPDATE: '📉',
   WALLET_SANCTIONED: '🚫',
   SYSTEM_ALERT: '⚡',
+  TRAVEL_RULE_UPDATE: '🔄',
+  STR_SAR_CREATED: '📋',
+  STR_SAR_FILED: '📤',
+  FILING_OVERDUE: '⏰',
+  USER_ROLE_CHANGED: '👤',
+  USER_SUSPENDED: '🔒',
+  SECURITY_ALERT: '🛡️',
 };
 
 const EVENT_LABELS: Record<WSEventType, string> = {
@@ -35,6 +42,13 @@ const EVENT_LABELS: Record<WSEventType, string> = {
   KPI_UPDATE: 'KPI Update',
   WALLET_SANCTIONED: 'Sanctioned',
   SYSTEM_ALERT: 'System',
+  TRAVEL_RULE_UPDATE: 'Travel Rule',
+  STR_SAR_CREATED: 'STR/SAR Created',
+  STR_SAR_FILED: 'STR/SAR Filed',
+  FILING_OVERDUE: 'Filing Overdue',
+  USER_ROLE_CHANGED: 'Role Changed',
+  USER_SUSPENDED: 'User Suspended',
+  SECURITY_ALERT: 'Security Alert',
 };
 
 const EVENT_BADGE_CLASS: Record<WSEventType, string> = {
@@ -48,6 +62,13 @@ const EVENT_BADGE_CLASS: Record<WSEventType, string> = {
   KPI_UPDATE: 'badge-success',
   WALLET_SANCTIONED: 'badge-danger',
   SYSTEM_ALERT: 'badge-secondary',
+  TRAVEL_RULE_UPDATE: 'badge-info',
+  STR_SAR_CREATED: 'badge-warning',
+  STR_SAR_FILED: 'badge-success',
+  FILING_OVERDUE: 'badge-danger',
+  USER_ROLE_CHANGED: 'badge-warning',
+  USER_SUSPENDED: 'badge-danger',
+  SECURITY_ALERT: 'badge-danger',
 };
 
 function relativeTime(ts: string): string {
