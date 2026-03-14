@@ -236,6 +236,7 @@ export interface TaxableEvent {
   taxRate: number;
   taxAmountUSD: number;
   taxAmountNGN: number;
+  isFlagged: boolean;
 }
 
 export type AssessmentPeriod = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'ANNUAL';

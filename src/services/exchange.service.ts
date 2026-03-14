@@ -11,6 +11,7 @@ import {
   ExchangeTransactionType,
 } from '../types';
 import { logger } from '../utils/logger';
+import { USD_TO_NGN } from './tax-engine.service';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -19,8 +20,7 @@ import { logger } from '../utils/logger';
 const EXCHANGE_NAMES = ['Binance', 'Luno', 'Quidax'] as const;
 export type ExchangeName = (typeof EXCHANGE_NAMES)[number];
 
-const USD_TO_NGN = 1550;
-
+// USD_TO_NGN is exported from tax-engine.service.ts as the single source of truth
 // In-memory stores
 const connections: Map<string, ExchangeConnection[]> = new Map();
 const exchangeTransactions: Map<string, ExchangeTransaction[]> = new Map();

@@ -15,7 +15,7 @@ import { logger } from '../utils/logger';
 // Constants
 // ---------------------------------------------------------------------------
 
-const USD_TO_NGN = 1550;
+// USD_TO_NGN is the single source of truth in tax-engine.service.ts
 
 const DEMO_USERS: Array<{
   firstName: string;
@@ -217,7 +217,7 @@ export async function seedDemoData(): Promise<{
     const user: User = {
       id: userId,
       email: profile.email,
-      passwordHash: '$2b$12$demo_hash_not_usable', // not usable for auth
+      passwordHash: '$2b$12$demoHashNotUsableForLogin_', // demo users cannot log in via password — use the real register endpoint
       firstName: profile.firstName,
       lastName: profile.lastName,
       role: profile.role,

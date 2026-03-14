@@ -299,6 +299,7 @@ export interface TaxableEvent {
   taxRate: number;
   taxAmountUSD: number;
   taxAmountNGN: number;
+  isFlagged: boolean;
 }
 
 // ---------------------------------------------------------------------------

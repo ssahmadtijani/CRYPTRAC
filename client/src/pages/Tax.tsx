@@ -11,6 +11,8 @@ import {
 import StatsCard from '../components/StatsCard';
 import Toast from '../components/Toast';
 
+// USD_TO_NGN mirrors the backend constant (src/services/tax-engine.service.ts).
+// Both must be updated together if the rate changes.
 const USD_TO_NGN = 1550;
 
 const fmtUSD = (n: number) =>
