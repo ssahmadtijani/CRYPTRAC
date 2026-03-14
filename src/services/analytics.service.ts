@@ -289,6 +289,11 @@ export async function getComplianceOverview(): Promise<ComplianceOverviewItem[]>
 // Geographic Breakdown (stub: exchange-based geo mapping)
 // ---------------------------------------------------------------------------
 
+/**
+ * Geographic breakdown stub: maps known exchange/network names to broad regions.
+ * Blockchain network names (e.g., "ethereum", "bitcoin") that aren't in this map
+ * will fall under "Other". Replace with a proper geo-lookup in production.
+ */
 const EXCHANGE_REGION_MAP: Record<string, string> = {
   Binance: 'Asia-Pacific',
   Coinbase: 'North America',

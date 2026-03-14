@@ -26,7 +26,7 @@ import {
 /** CTR threshold in USD — transactions just below this are suspicious */
 const CTR_THRESHOLD = 10_000;
 
-/** Amount considered "just below" the CTR threshold */
+/** Amount range lower-bound considered "just below" the CTR threshold (70–100% of CTR_THRESHOLD) */
 const STRUCTURING_LOWER_BOUND = CTR_THRESHOLD * 0.7;
 
 /** Time window for structuring detection (hours) */
@@ -297,7 +297,7 @@ export async function detectLayering(userId?: string): Promise<LayeringPattern[]
           totalVolumeUSD
         );
       }
-      return; // Don't extend chains beyond minimum hops to avoid explosion
+      return; // Cap chains at exactly LAYERING_MIN_HOPS to keep complexity O(n^3) bounded.
     }
 
     const outbound = outboundMap.get(currentAddress) ?? [];

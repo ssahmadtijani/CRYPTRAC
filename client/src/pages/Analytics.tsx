@@ -31,6 +31,8 @@ import type {
 // Constants
 // ---------------------------------------------------------------------------
 
+// Note: recharts requires concrete color values, not CSS variables.
+// These are synchronized with the corresponding --risk-* CSS variables in App.css.
 const RISK_COLORS: Record<string, string> = {
   LOW: '#10b981',
   MEDIUM: '#f59e0b',
@@ -106,8 +108,8 @@ export default function Analytics() {
     try {
       const res = await analyticsApi.getTimeSeries(period, range);
       setTimeSeries(res.data.data ?? []);
-    } catch {
-      // ignore time series errors
+    } catch (err) {
+      console.error('Failed to load time series:', err);
     }
   }, [period, range]);
 
@@ -143,7 +145,8 @@ export default function Analytics() {
         setGraph(graphRes.data.data ?? null);
         setTopWallets(walletsRes.data.data ?? []);
         setCompliance(complianceRes.data.data ?? []);
-      } catch {
+      } catch (err) {
+        console.error('Analytics load error:', err);
         setError('Failed to load analytics data.');
       } finally {
         setLoading(false);
