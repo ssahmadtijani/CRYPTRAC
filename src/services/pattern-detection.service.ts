@@ -17,7 +17,9 @@ import {
   RoundTripPattern,
   PatternDetectionResult,
   PatternHistoryEntry,
+  WSEventType,
 } from '../types';
+import { eventBus } from '../utils/eventBus';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -413,7 +415,7 @@ export async function detectAllPatterns(userId?: string): Promise<PatternDetecti
     detectRoundTripping(userId),
   ]);
 
-  return {
+  const result: PatternDetectionResult = {
     structuring,
     rapidMovement,
     layering,
@@ -428,6 +430,20 @@ export async function detectAllPatterns(userId?: string): Promise<PatternDetecti
       detectedAt: new Date(),
     },
   };
+
+  // Emit WebSocket event when patterns are detected
+  if (result.summary.totalPatterns > 0) {
+    eventBus.emit('ws:broadcast', {
+      type: WSEventType.PATTERN_DETECTED,
+      payload: {
+        summary: result.summary,
+        userId,
+      },
+      timestamp: new Date(),
+    });
+  }
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------

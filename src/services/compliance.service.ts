@@ -14,11 +14,13 @@ import {
   UserRole,
   NotificationType,
   NotificationPriority,
+  WSEventType,
 } from '../types';
 import { logger } from '../utils/logger';
 import { prisma } from '../lib/prisma';
 import { broadcastToRoles } from './notification.service';
 import { evaluateTransaction } from './alert.service';
+import { eventBus } from '../utils/eventBus';
 
 // ---------------------------------------------------------------------------
 // Regulatory thresholds (USD)
@@ -152,6 +154,18 @@ export async function generateSAR(transaction: Transaction): Promise<ComplianceR
     referenceId: record.id,
     referenceType: 'COMPLIANCE_REPORT',
   }).catch((err) => logger.error('Failed to broadcast SAR notification', { error: err }));
+
+  // Emit WebSocket compliance alert
+  eventBus.emit('ws:broadcast', {
+    type: WSEventType.COMPLIANCE_ALERT,
+    payload: {
+      reportId: record.id,
+      reportType: ReportType.SAR,
+      transactionId: transaction.id,
+      amountUSD: transaction.amountUSD,
+    },
+    timestamp: new Date(),
+  });
 
   return mapPrismaReport(record);
 }

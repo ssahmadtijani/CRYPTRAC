@@ -14,12 +14,14 @@ import {
   UserRole,
   NotificationType,
   NotificationPriority,
+  WSEventType,
 } from '../types';
 import { CreateTransactionInput } from '../validators/schemas';
 import { logger } from '../utils/logger';
 import { prisma } from '../lib/prisma';
 import { autoCreateCase } from './case.service';
 import { broadcastToRoles } from './notification.service';
+import { eventBus } from '../utils/eventBus';
 
 // ---------------------------------------------------------------------------
 // Risk scoring thresholds (USD)
@@ -178,6 +180,27 @@ export async function createTransaction(
       logger.error('Failed to broadcast high-risk transaction notification', { error: err })
     );
   }
+
+  // Emit WebSocket event for real-time dashboard updates
+  const wsEventType =
+    riskLevel === RiskLevel.HIGH || riskLevel === RiskLevel.CRITICAL
+      ? WSEventType.TRANSACTION_FLAGGED
+      : WSEventType.TRANSACTION_CREATED;
+
+  eventBus.emit('ws:broadcast', {
+    type: wsEventType,
+    payload: {
+      transactionId: transaction.id,
+      txHash: transaction.txHash,
+      riskLevel: transaction.riskLevel,
+      riskScore: transaction.riskScore,
+      amountUSD: transaction.amountUSD,
+      asset: transaction.asset,
+      network: transaction.network,
+    },
+    timestamp: new Date(),
+    userId: transaction.userId,
+  });
 
   return transaction;
 }

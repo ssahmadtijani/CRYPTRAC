@@ -15,10 +15,12 @@ import {
   CaseStatus,
   RiskLevel,
   ComplianceStatus,
+  WSEventType,
 } from '../types';
 import { CreateAlertRuleInput, UpdateAlertRuleInput } from '../validators/schemas';
 import { logger } from '../utils/logger';
 import { broadcastToRoles } from './notification.service';
+import { eventBus } from '../utils/eventBus';
 
 // ---------------------------------------------------------------------------
 // In-memory store
@@ -280,6 +282,18 @@ export async function evaluateTransaction(transaction: Transaction): Promise<voi
           ruleId: rule.id,
           ruleName: rule.name,
           transactionId: transaction.id,
+        });
+
+        // Emit WebSocket system alert for triggered rule
+        eventBus.emit('ws:broadcast', {
+          type: WSEventType.SYSTEM_ALERT,
+          payload: {
+            ruleId: rule.id,
+            ruleName: rule.name,
+            transactionId: transaction.id,
+            riskLevel: transaction.riskLevel,
+          },
+          timestamp: new Date(),
         });
       }
     } catch (err) {

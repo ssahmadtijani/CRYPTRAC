@@ -297,7 +297,7 @@ analyticsRoutes.get(
   authorize(...ANALYST_ROLES),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { address } = req.params;
+      const address = String(req.params.address);
       const depth = parseInt(String(req.query.depth ?? '2'), 10);
       const data = await networkService.getWalletConnections(address, depth);
       const response: ApiResponse<typeof data> = { success: true, data };
