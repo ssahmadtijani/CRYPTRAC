@@ -7,20 +7,7 @@ import { Wallet, RiskLevel } from '../types';
 import { WalletInput } from '../validators/schemas';
 import { logger } from '../utils/logger';
 import { prisma } from '../lib/prisma';
-
-// ---------------------------------------------------------------------------
-// Stub sanctions list (replace with live OFAC/UN/EU list integration)
-// ---------------------------------------------------------------------------
-const SANCTIONED_ADDRESSES: Map<string, string> = new Map([
-  [
-    '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
-    'OFAC SDN List — suspected money laundering',
-  ],
-  [
-    '0x0000000000000000000000000000000000000001',
-    'UN Security Council Consolidated List',
-  ],
-]);
+import * as sanctionsService from './sanctions.service';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -74,8 +61,14 @@ export async function registerWallet(
   userId: string
 ): Promise<Wallet> {
   const address = data.address.toLowerCase();
-  const sanctionDetails = SANCTIONED_ADDRESSES.get(address);
-  const isSanctioned = sanctionDetails !== undefined;
+
+  // Check against the live sanctions service (falls back gracefully if list not yet loaded)
+  const sanctionCheck = sanctionsService.checkAddress(address);
+  const isSanctioned = sanctionCheck.isSanctioned;
+  const sanctionDetails =
+    sanctionCheck.entries.length > 0
+      ? sanctionCheck.entries.map((e) => e.details ?? e.name).join('; ')
+      : undefined;
 
   const riskScore = calculateInitialRiskScore(address, isSanctioned);
   const riskLevel = scoreToRiskLevel(riskScore);
@@ -148,10 +141,12 @@ export async function updateWalletRiskScore(address: string): Promise<Wallet | n
 export async function checkSanctionsList(
   address: string
 ): Promise<{ isSanctioned: boolean; details?: string }> {
-  const localDetails = SANCTIONED_ADDRESSES.get(address.toLowerCase());
-  if (localDetails) {
-    logger.info('Sanctions check performed', { address, isSanctioned: true });
-    return { isSanctioned: true, details: localDetails };
+  // First check the live sanctions service
+  const liveCheck = sanctionsService.checkAddress(address);
+  if (liveCheck.isSanctioned) {
+    const details = liveCheck.entries.map((e) => e.details ?? e.name).join('; ');
+    logger.info('Sanctions check performed', { address, isSanctioned: true, source: 'live' });
+    return { isSanctioned: true, details };
   }
 
   // Also check persisted wallet record for any stored sanctions data

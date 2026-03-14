@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CRYPTRAC Exchange Reporting Schema (XSD)
+  National Crypto Transaction Monitoring & Tax Compliance System (NCTMTCS)
+
+  Purpose:
+    Defines the canonical XML format that regulated cryptocurrency exchanges
+    must use when submitting periodic transaction reports to tax authorities
+    and financial intelligence units.
+
+  Version: 1.0
+  Aligned with:
+    - FATF Recommendation 16 (Travel Rule)
+    - CARF (Crypto-Asset Reporting Framework, OECD 2023)
+    - Nigerian Finance Act 2023 (crypto taxation provisions)
+
+  Usage:
+    Exchanges submit an ExchangeReport document via
+    POST /api/v1/exchange-reports/import
+
+  Validation:
+    Structural and type validation is enforced server-side.
+    Full XSD validation may be enabled via the VALIDATE_XSD env flag.
+-->
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  elementFormDefault="qualified"
+  version="1.0">
+
+  <!-- ======================================================
+       ROOT ELEMENT
+       ====================================================== -->
+
+  <xs:element name="ExchangeReport">
+    <xs:annotation>
+      <xs:documentation>
+        Root element of an exchange periodic transaction report.
+        Each document covers one reporting period for one exchange entity.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="ReportingEntity"  type="ReportingEntityType"/>
+        <xs:element name="AccountHolders"   type="AccountHoldersType"/>
+        <xs:element name="Summary"          type="SummaryType"/>
+      </xs:sequence>
+      <!-- Schema version attribute for forward-compatibility -->
+      <xs:attribute name="schemaVersion"  type="xs:string"  use="required"/>
+      <!-- ISO 8601 date-time when the report was generated -->
+      <xs:attribute name="generatedAt"    type="xs:dateTime" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ======================================================
+       REPORTING ENTITY
+       ====================================================== -->
+
+  <xs:complexType name="ReportingEntityType">
+    <xs:annotation>
+      <xs:documentation>
+        Metadata about the exchange submitting this report.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <!-- Legal name of the exchange -->
+      <xs:element name="ExchangeName"       type="NonEmptyString"/>
+      <!-- Two-letter ISO 3166-1 alpha-2 country code of incorporation -->
+      <xs:element name="Jurisdiction"       type="CountryCodeType"/>
+      <!-- Regulatory licence or registration number -->
+      <xs:element name="LicenseNumber"      type="NonEmptyString"/>
+      <!-- Brief description of the reporting period (e.g., "2024-Q1") -->
+      <xs:element name="ReportingPeriod"    type="NonEmptyString"/>
+      <!-- Inclusive start date of the reporting period -->
+      <xs:element name="PeriodStart"        type="xs:date"/>
+      <!-- Inclusive end date of the reporting period -->
+      <xs:element name="PeriodEnd"          type="xs:date"/>
+      <!-- Contact email address for follow-up queries -->
+      <xs:element name="ContactEmail"       type="EmailType"  minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================================================
+       ACCOUNT HOLDERS
+       ====================================================== -->
+
+  <xs:complexType name="AccountHoldersType">
+    <xs:sequence>
+      <xs:element name="AccountHolder" type="AccountHolderType"
+                  minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="AccountHolderType">
+    <xs:annotation>
+      <xs:documentation>
+        A single verified account holder (customer) of the reporting exchange.
+        KYC status must be one of the permitted values.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <!-- Full legal name (surname, forename order recommended) -->
+      <xs:element name="FullName"         type="NonEmptyString"/>
+      <!-- Type of government-issued identification -->
+      <xs:element name="IDType"           type="IDTypeEnum"/>
+      <!-- Identification document number (redacted where required by local law) -->
+      <xs:element name="IDNumber"         type="NonEmptyString"/>
+      <!-- Exchange-internal account identifier (pseudonymised) -->
+      <xs:element name="AccountID"        type="NonEmptyString"/>
+      <!-- KYC verification status -->
+      <xs:element name="KYCStatus"        type="KYCStatusEnum"/>
+      <!-- Country of residence (ISO 3166-1 alpha-2) -->
+      <xs:element name="CountryOfResidence" type="CountryCodeType" minOccurs="0"/>
+      <!-- All transactions by this account holder during the period -->
+      <xs:element name="Transactions"     type="AccountTransactionsType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================================================
+       TRANSACTIONS
+       ====================================================== -->
+
+  <xs:complexType name="AccountTransactionsType">
+    <xs:sequence>
+      <xs:element name="Transaction" type="TransactionRecordType"
+                  minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="TransactionRecordType">
+    <xs:annotation>
+      <xs:documentation>
+        A single transaction record reported by the exchange.
+        All monetary amounts are represented as decimals.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <!-- Exchange-internal transaction identifier -->
+      <xs:element name="TransactionID"      type="NonEmptyString"/>
+      <!-- Transaction classification -->
+      <xs:element name="Type"               type="TransactionTypeEnum"/>
+      <!-- Primary crypto asset symbol (e.g., BTC, ETH, USDT) -->
+      <xs:element name="Asset"              type="AssetSymbolType"/>
+      <!-- Quantity of the primary asset involved -->
+      <xs:element name="Amount"             type="PositiveDecimal"/>
+      <!-- Unit price of the asset in USD at transaction time -->
+      <xs:element name="UnitPriceUSD"       type="NonNegativeDecimal"/>
+      <!-- Total value in USD (Amount × UnitPriceUSD, before fees) -->
+      <xs:element name="TotalValueUSD"      type="NonNegativeDecimal"/>
+      <!-- Fee charged in the primary asset -->
+      <xs:element name="Fee"                type="NonNegativeDecimal"/>
+      <!-- Fee converted to USD -->
+      <xs:element name="FeeUSD"             type="NonNegativeDecimal"/>
+      <!-- For SWAP/TRADE: the received asset symbol -->
+      <xs:element name="CounterAsset"       type="AssetSymbolType"     minOccurs="0"/>
+      <!-- For SWAP/TRADE: the quantity of CounterAsset received -->
+      <xs:element name="CounterAmount"      type="NonNegativeDecimal"  minOccurs="0"/>
+      <!-- On-chain wallet address for deposits/withdrawals (may be pseudonymised) -->
+      <xs:element name="WalletAddress"      type="WalletAddressType"   minOccurs="0"/>
+      <!-- ISO 8601 date-time of the transaction -->
+      <xs:element name="Timestamp"          type="xs:dateTime"/>
+      <!-- On-chain transaction hash (if available) -->
+      <xs:element name="TxHash"             type="TxHashType"          minOccurs="0"/>
+      <!-- Free-text notes or flags from the exchange's compliance team -->
+      <xs:element name="Notes"              type="xs:string"           minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================================================
+       SUMMARY
+       ====================================================== -->
+
+  <xs:complexType name="SummaryType">
+    <xs:annotation>
+      <xs:documentation>
+        Aggregate statistics for the entire report.
+        These values are validated by the CRYPTRAC importer against
+        the individual transaction records.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <!-- Total number of AccountHolder records in this report -->
+      <xs:element name="TotalAccountHolders"    type="xs:nonNegativeInteger"/>
+      <!-- Total number of Transaction records across all account holders -->
+      <xs:element name="TotalTransactions"      type="xs:nonNegativeInteger"/>
+      <!-- Sum of TotalValueUSD across all transactions -->
+      <xs:element name="TotalVolumeUSD"         type="NonNegativeDecimal"/>
+      <!-- Number of transactions flagged by the exchange as suspicious -->
+      <xs:element name="FlaggedTransactions"    type="xs:nonNegativeInteger"/>
+      <!-- Checksum / hash of the report content for tamper detection (optional) -->
+      <xs:element name="Checksum"               type="xs:string"              minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================================================
+       SIMPLE TYPE CONSTRAINTS
+       ====================================================== -->
+
+  <!-- Non-empty string (trim-validated server-side) -->
+  <xs:simpleType name="NonEmptyString">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:maxLength value="500"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Positive decimal (greater than zero) -->
+  <xs:simpleType name="PositiveDecimal">
+    <xs:restriction base="xs:decimal">
+      <xs:minExclusive value="0"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Non-negative decimal (zero or greater) -->
+  <xs:simpleType name="NonNegativeDecimal">
+    <xs:restriction base="xs:decimal">
+      <xs:minInclusive value="0"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ISO 3166-1 alpha-2 country code -->
+  <xs:simpleType name="CountryCodeType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z]{2}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Email address (basic format) -->
+  <xs:simpleType name="EmailType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[^@]+@[^@]+\.[^@]+"/>
+      <xs:maxLength value="254"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Crypto asset symbol: 1-20 uppercase alphanumeric characters -->
+  <xs:simpleType name="AssetSymbolType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z0-9]{1,20}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Wallet / blockchain address: 10-100 alphanumeric/hex characters -->
+  <xs:simpleType name="WalletAddressType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[a-zA-Z0-9]{10,100}"/>
+      <xs:maxLength value="100"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- On-chain transaction hash: hex string of 40-128 characters -->
+  <xs:simpleType name="TxHashType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="0x[0-9a-fA-F]{40,128}|[0-9a-fA-F]{40,128}"/>
+      <xs:maxLength value="130"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ======================================================
+       ENUMERATION TYPES
+       ====================================================== -->
+
+  <xs:simpleType name="TransactionTypeEnum">
+    <xs:annotation>
+      <xs:documentation>
+        Permitted transaction classifications.
+        - BUY:        Purchase of a crypto asset with fiat or another crypto
+        - SELL:       Sale of a crypto asset for fiat or another crypto
+        - DEPOSIT:    Inbound transfer from an external wallet
+        - WITHDRAWAL: Outbound transfer to an external wallet
+        - SWAP:       Exchange of one crypto asset for another (DEX or internal)
+        - STAKING:    Staking reward received
+        - MINING:     Block reward from proof-of-work mining
+        - AIRDROP:    Unsolicited token distribution received
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="BUY"/>
+      <xs:enumeration value="SELL"/>
+      <xs:enumeration value="DEPOSIT"/>
+      <xs:enumeration value="WITHDRAWAL"/>
+      <xs:enumeration value="SWAP"/>
+      <xs:enumeration value="STAKING"/>
+      <xs:enumeration value="MINING"/>
+      <xs:enumeration value="AIRDROP"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="KYCStatusEnum">
+    <xs:annotation>
+      <xs:documentation>
+        KYC verification level of the account holder.
+        - VERIFIED:     Full KYC completed and documents verified
+        - PENDING:      KYC in progress / under review
+        - UNVERIFIED:   Account registered but KYC not yet submitted
+        - ENHANCED:     Enhanced due diligence completed (PEP/high-risk)
+        - SUSPENDED:    Account under compliance hold
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="VERIFIED"/>
+      <xs:enumeration value="PENDING"/>
+      <xs:enumeration value="UNVERIFIED"/>
+      <xs:enumeration value="ENHANCED"/>
+      <xs:enumeration value="SUSPENDED"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="IDTypeEnum">
+    <xs:annotation>
+      <xs:documentation>
+        Government-issued identity document types accepted for KYC.
+      </xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="PASSPORT"/>
+      <xs:enumeration value="NATIONAL_ID"/>
+      <xs:enumeration value="DRIVERS_LICENSE"/>
+      <xs:enumeration value="RESIDENCE_PERMIT"/>
+      <xs:enumeration value="TAX_ID"/>
+      <xs:enumeration value="OTHER"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

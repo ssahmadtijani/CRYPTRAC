@@ -12,6 +12,10 @@ import { exchangeRoutes } from './routes/exchange.routes';
 import { taxRoutes } from './routes/tax.routes';
 import { taxAuthorityRoutes } from './routes/tax-authority.routes';
 import { demoRoutes } from './routes/demo.routes';
+import { ingestionRoutes } from './routes/ingestion.routes';
+import { sanctionsRoutes } from './routes/sanctions.routes';
+import { riskRoutes } from './routes/risk.routes';
+import { xmlImportRoutes } from './routes/xml-import.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 
@@ -48,6 +52,10 @@ app.use('/api/v1/exchanges', exchangeRoutes);
 app.use('/api/v1/tax', taxRoutes);
 app.use('/api/v1/authority', taxAuthorityRoutes);
 app.use('/api/v1/demo', demoRoutes);
+app.use('/api/v1/ingestion', ingestionRoutes);
+app.use('/api/v1/sanctions', sanctionsRoutes);
+app.use('/api/v1/risk', riskRoutes);
+app.use('/api/v1/exchange-reports', xmlImportRoutes);
 
 // Error handling
 app.use(errorHandler);

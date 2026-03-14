@@ -341,3 +341,63 @@ model CostBasisLot {
 
   @@index([userId, asset])
 }
+
+model BlockSyncState {
+  id          String    @id @default(uuid())
+  network     String    @unique
+  lastBlock   Int
+  targetBlock Int?
+  isRunning   Boolean   @default(false)
+  lastError   String?
+  updatedAt   DateTime  @updatedAt
+
+  @@index([network])
+}
+
+model WatchedAddress {
+  id        String   @id @default(uuid())
+  address   String
+  network   String
+  label     String?
+  addedBy   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([address, network])
+  @@index([address])
+  @@index([isActive])
+}
+
+model SanctionEntry {
+  id          String   @id @default(uuid())
+  address     String
+  name        String?
+  source      String
+  listType    String
+  details     String?
+  addedAt     DateTime
+  lastChecked DateTime @default(now())
+
+  @@index([address])
+  @@index([source])
+}
+
+model ExchangeReportSubmission {
+  id               String    @id @default(uuid())
+  exchangeName     String
+  reportingPeriod  String
+  periodStart      DateTime
+  periodEnd        DateTime
+  status           String    @default("PENDING")
+  totalRecords     Int       @default(0)
+  validRecords     Int       @default(0)
+  errorRecords     Int       @default(0)
+  validationErrors Json?
+  submittedBy      String?
+  processedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([exchangeName])
+  @@index([status])
+}
