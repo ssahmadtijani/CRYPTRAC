@@ -1,3 +1,4 @@
+import http from 'http';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -22,6 +23,8 @@ import { alertRoutes } from './routes/alert.routes';
 import { auditRoutes } from './routes/audit.routes';
 import { exportRoutes } from './routes/export.routes';
 import { analyticsRoutes } from './routes/analytics.routes';
+import { websocketRoutes } from './routes/websocket.routes';
+import { initializeWebSocket } from './services/websocket.service';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 
@@ -68,16 +71,21 @@ app.use('/api/v1/alerts', alertRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/export', exportRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/ws', websocketRoutes);
 
 // Error handling
 app.use(errorHandler);
+
+const server = http.createServer(app);
 
 // Start server after DB connection
 prisma
   .$connect()
   .then(() => {
     logger.info('Database connected');
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
+      // Initialize WebSocket server after HTTP server is listening
+      initializeWebSocket(server);
       logger.info(`CRYPTRAC server running on port ${PORT}`);
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
     });

@@ -1179,3 +1179,301 @@ a:hover {
   background: rgba(16, 185, 129, 0.12);
   color: var(--success);
 }
+
+/* ============================================================
+   Phase 3B — WebSocket & Export Additions
+   ============================================================ */
+
+/* ── Keyframes ────────────────────────────────────────────── */
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(1.15); }
+}
+
+@keyframes slideInDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Connection Status ────────────────────────────────────── */
+
+.connection-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.connection-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-connected {
+  background: var(--success);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.dot-connecting {
+  background: var(--warning);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.dot-disconnected {
+  background: var(--danger);
+}
+
+.connection-label {
+  white-space: nowrap;
+}
+
+/* ── Live Activity Feed ───────────────────────────────────── */
+
+.live-feed-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.live-feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.live-feed {
+  overflow-y: auto;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.live-feed::-webkit-scrollbar {
+  width: 4px;
+}
+
+.live-feed::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.live-feed-empty {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.live-feed-event {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  transition: background var(--transition);
+}
+
+.live-feed-event:hover {
+  background: var(--bg-hover);
+}
+
+.live-feed-event-enter {
+  animation: slideInDown 0.25s ease forwards;
+}
+
+.lfe-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.lfe-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.lfe-top {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.lfe-time {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.lfe-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.live-feed-footer {
+  padding: 0.5rem 0 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+/* ── Dashboard Layout with Sidebar ──────────────────────────  */
+
+.dashboard-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-main-content {
+  min-width: 0;
+}
+
+.dashboard-sidebar {
+  position: sticky;
+  top: 1rem;
+}
+
+/* ── Export Button ────────────────────────────────────────── */
+
+.export-btn-container {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.export-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 200;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  min-width: 130px;
+  overflow: hidden;
+  animation: fadeIn 0.15s ease;
+}
+
+.export-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  text-align: left;
+  transition: background var(--transition);
+}
+
+.export-dropdown-item:hover {
+  background: var(--bg-hover);
+}
+
+.edf-icon {
+  font-size: 0.9rem;
+}
+
+.edf-label {
+  font-weight: 500;
+}
+
+.export-error {
+  font-size: 0.75rem;
+  color: var(--danger);
+  margin-top: 0.25rem;
+  max-width: 200px;
+}
+
+/* ── Refresh Banner ───────────────────────────────────────── */
+
+.refresh-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: var(--radius);
+  color: var(--accent);
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  animation: fadeIn 0.3s ease;
+  transition: background var(--transition);
+}
+
+.refresh-banner:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+/* ── Page Header Actions ──────────────────────────────────── */
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* ── Badge extras ─────────────────────────────────────────── */
+
+.badge-info {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.badge-secondary {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.spinner-sm {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+}

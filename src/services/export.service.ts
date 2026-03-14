@@ -525,3 +525,497 @@ export async function exportData(
     data: pdfBuffer,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Enhanced Export: Analytics Report
+// ---------------------------------------------------------------------------
+
+import { v4 as uuidv4 } from 'uuid';
+import {
+  ExportJob,
+  AuditFilter,
+  PatternDetectionResult,
+  TransactionGraph,
+  AnalyticsKPIs,
+  TimeSeriesPoint,
+  RiskDistributionItem,
+  AssetBreakdownItem,
+} from '../types';
+import * as analyticsService from './analytics.service';
+import * as patternService from './pattern-detection.service';
+import * as networkService from './network-analysis.service';
+import * as auditService from './audit.service';
+import { getCaseById } from './case.service';
+
+// In-memory job store
+const exportJobs = new Map<string, ExportJob>();
+
+export interface AnalyticsReportData {
+  kpis: AnalyticsKPIs;
+  timeSeries: TimeSeriesPoint[];
+  riskDistribution: RiskDistributionItem[];
+  assetBreakdown: AssetBreakdownItem[];
+  generatedAt: Date;
+}
+
+export async function exportAnalyticsReport(
+  format: 'csv' | 'json' | 'pdf'
+): Promise<ExportResult> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const baseName = `analytics-report-${timestamp}`;
+
+  const [kpis, timeSeries, riskDistribution, assetBreakdown] = await Promise.all([
+    analyticsService.getKPIs(),
+    analyticsService.getTransactionTimeSeries('day', 30),
+    analyticsService.getRiskDistribution(),
+    analyticsService.getAssetBreakdown(),
+  ]);
+
+  const data: AnalyticsReportData = {
+    kpis,
+    timeSeries,
+    riskDistribution,
+    assetBreakdown,
+    generatedAt: new Date(),
+  };
+
+  logger.info('Generating analytics report', { format });
+
+  if (format === 'json') {
+    return {
+      contentType: 'application/json',
+      filename: `${baseName}.json`,
+      data: JSON.stringify(data, null, 2),
+    };
+  }
+
+  if (format === 'csv') {
+    const kpiRows = Object.entries(kpis).map(([key, value]) =>
+      buildCsvRow([key, String(value)])
+    );
+    const kpiSection = ['Metric,Value', ...kpiRows].join('\n');
+
+    const tsHeaders = buildCsvRow(['Date', 'Count', 'Volume USD', 'Flagged Count']);
+    const tsRows = timeSeries.map((p) =>
+      buildCsvRow([p.date, p.count, p.volumeUSD, p.flaggedCount])
+    );
+    const tsSection = [tsHeaders, ...tsRows].join('\n');
+
+    const csv = `CRYPTRAC Analytics Report\nGenerated: ${data.generatedAt.toISOString()}\n\nKPIs\n${kpiSection}\n\nTransaction Time Series\n${tsSection}`;
+    return { contentType: 'text/csv', filename: `${baseName}.csv`, data: csv };
+  }
+
+  // PDF
+  const buffer = await new Promise<Buffer>((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    const chunks: Buffer[] = [];
+    const stream = new Writable({
+      write(chunk, _enc, cb) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string));
+        cb();
+      },
+    });
+    doc.pipe(stream);
+
+    doc.fontSize(18).font('Helvetica-Bold').text('CRYPTRAC – Analytics Report', { align: 'center' });
+    doc.fontSize(10).font('Helvetica').text(`Generated: ${data.generatedAt.toISOString()}`, { align: 'center' });
+    doc.moveDown();
+
+    doc.fontSize(13).font('Helvetica-Bold').text('Key Performance Indicators');
+    doc.moveDown(0.5);
+    for (const [key, value] of Object.entries(kpis)) {
+      doc.fontSize(9).font('Helvetica').text(`${key}: ${String(value)}`);
+    }
+    doc.moveDown();
+
+    doc.fontSize(13).font('Helvetica-Bold').text('Risk Distribution');
+    doc.moveDown(0.5);
+    for (const item of riskDistribution) {
+      doc.fontSize(9).font('Helvetica').text(`${item.level}: ${item.count} (${item.percentage.toFixed(1)}%)`);
+    }
+    doc.moveDown();
+
+    doc.fontSize(13).font('Helvetica-Bold').text('Asset Breakdown');
+    doc.moveDown(0.5);
+    for (const item of assetBreakdown) {
+      doc.fontSize(9).font('Helvetica').text(`${item.asset}: ${item.count} txns, $${item.volumeUSD.toFixed(2)} USD (${item.percentage.toFixed(1)}%)`);
+    }
+
+    doc.end();
+    stream.on('finish', () => resolve(Buffer.concat(chunks)));
+    stream.on('error', reject);
+  });
+
+  return { contentType: 'application/pdf', filename: `${baseName}.pdf`, data: buffer };
+}
+
+// ---------------------------------------------------------------------------
+// Enhanced Export: Case Report
+// ---------------------------------------------------------------------------
+
+export async function exportCaseReport(
+  caseId: string,
+  format: 'csv' | 'json' | 'pdf'
+): Promise<ExportResult> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const baseName = `case-${caseId}-${timestamp}`;
+
+  const details = getCaseById(caseId);
+  if (!details) {
+    throw new Error(`Case not found: ${caseId}`);
+  }
+
+  logger.info('Generating case report', { caseId, format });
+
+  if (format === 'json') {
+    return {
+      contentType: 'application/json',
+      filename: `${baseName}.json`,
+      data: JSON.stringify(details, null, 2),
+    };
+  }
+
+  if (format === 'csv') {
+    const caseRow = buildCsvRow([
+      details.id,
+      details.caseNumber,
+      details.title,
+      details.category,
+      details.status,
+      details.priority,
+      details.riskLevel,
+      details.createdAt.toISOString(),
+    ]);
+
+    const notesSection = details.notes.length > 0
+      ? ['Note ID,Author,Content,Created At', ...details.notes.map((n) =>
+          buildCsvRow([n.id, n.authorId, n.content, n.createdAt.toISOString()])
+        )].join('\n')
+      : 'No notes';
+
+    const timelineSection = details.timeline.length > 0
+      ? ['Event,Performed By,Timestamp', ...details.timeline.map((t) =>
+          buildCsvRow([t.action, t.performedById, t.timestamp.toISOString()])
+        )].join('\n')
+      : 'No timeline entries';
+
+    const csv = `Case ID,Case Number,Title,Category,Status,Priority,Risk Level,Created At\n${caseRow}\n\nNotes\n${notesSection}\n\nTimeline\n${timelineSection}`;
+    return { contentType: 'text/csv', filename: `${baseName}.csv`, data: csv };
+  }
+
+  // PDF
+  const buffer = await new Promise<Buffer>((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    const chunks: Buffer[] = [];
+    const stream = new Writable({
+      write(chunk, _enc, cb) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string));
+        cb();
+      },
+    });
+    doc.pipe(stream);
+
+    const c = details;
+    doc.fontSize(18).font('Helvetica-Bold').text(`CRYPTRAC – Case Report: ${c.caseNumber}`, { align: 'center' });
+    doc.fontSize(10).font('Helvetica').text(`Generated: ${new Date().toISOString()}`, { align: 'center' });
+    doc.moveDown();
+
+    doc.fontSize(12).font('Helvetica-Bold').text('Case Details');
+    doc.fontSize(9).font('Helvetica')
+      .text(`Title: ${c.title}`)
+      .text(`Category: ${c.category}  |  Status: ${c.status}  |  Priority: ${c.priority}  |  Risk: ${c.riskLevel}`)
+      .text(`Assignee: ${c.assigneeId ?? 'Unassigned'}  |  Created By: ${c.createdById}`)
+      .text(`Created: ${c.createdAt.toISOString()}`);
+    if (c.description) doc.text(`Description: ${c.description}`);
+    doc.moveDown();
+
+    if (details.notes.length > 0) {
+      doc.fontSize(12).font('Helvetica-Bold').text('Notes');
+      for (const note of details.notes) {
+        doc.fontSize(9).font('Helvetica-Bold').text(`[${note.createdAt.toISOString()}] ${note.authorId}`);
+        doc.fontSize(9).font('Helvetica').text(note.content);
+        doc.moveDown(0.3);
+      }
+      doc.moveDown();
+    }
+
+    if (details.timeline.length > 0) {
+      doc.fontSize(12).font('Helvetica-Bold').text('Timeline');
+      for (const entry of details.timeline) {
+        doc.fontSize(9).font('Helvetica').text(`[${entry.timestamp.toISOString()}] ${entry.action} — ${entry.performedById}`);
+      }
+    }
+
+    doc.end();
+    stream.on('finish', () => resolve(Buffer.concat(chunks)));
+    stream.on('error', reject);
+  });
+
+  return { contentType: 'application/pdf', filename: `${baseName}.pdf`, data: buffer };
+}
+
+// ---------------------------------------------------------------------------
+// Enhanced Export: Audit Log with Filters
+// ---------------------------------------------------------------------------
+
+export async function exportAuditLog(
+  filters: AuditFilter,
+  format: 'csv' | 'json' | 'pdf'
+): Promise<ExportResult> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const baseName = `audit-log-${timestamp}`;
+
+  const result = auditService.getAuditLog({
+    ...filters,
+    pageSize: 10_000,
+  });
+  const entries = result.data ?? [];
+
+  logger.info('Generating audit log export', { format, count: entries.length });
+
+  if (format === 'json') {
+    return {
+      contentType: 'application/json',
+      filename: `${baseName}.json`,
+      data: JSON.stringify(entries, null, 2),
+    };
+  }
+
+  if (format === 'csv') {
+    return {
+      contentType: 'text/csv',
+      filename: `${baseName}.csv`,
+      data: exportAuditLogCsv(entries),
+    };
+  }
+
+  return {
+    contentType: 'application/pdf',
+    filename: `${baseName}.pdf`,
+    data: await exportAuditLogPdf(entries),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Enhanced Export: Pattern Report
+// ---------------------------------------------------------------------------
+
+export async function exportPatternReport(
+  format: 'csv' | 'json' | 'pdf'
+): Promise<ExportResult> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const baseName = `pattern-report-${timestamp}`;
+
+  const result: PatternDetectionResult = await patternService.detectAllPatterns();
+
+  logger.info('Generating pattern report', { format, totalPatterns: result.summary.totalPatterns });
+
+  if (format === 'json') {
+    return {
+      contentType: 'application/json',
+      filename: `${baseName}.json`,
+      data: JSON.stringify(result, null, 2),
+    };
+  }
+
+  if (format === 'csv') {
+    const summaryRows = [
+      'Pattern Type,Count',
+      buildCsvRow(['Structuring', result.summary.structuringCount]),
+      buildCsvRow(['Rapid Movement', result.summary.rapidMovementCount]),
+      buildCsvRow(['Layering', result.summary.layeringCount]),
+      buildCsvRow(['Round Tripping', result.summary.roundTrippingCount]),
+      buildCsvRow(['Total', result.summary.totalPatterns]),
+    ].join('\n');
+
+    const structRows = result.structuring.map((p) =>
+      buildCsvRow([p.walletAddress, p.transactions.length, p.totalAmount, p.timeWindowHours, p.detectedAt.toISOString()])
+    );
+    const structSection = ['Wallet,TX Count,Total Amount,Window (h),Detected At', ...structRows].join('\n');
+
+    const csv = `CRYPTRAC Pattern Detection Report\nGenerated: ${new Date().toISOString()}\n\nSummary\n${summaryRows}\n\nStructuring Patterns\n${structSection}`;
+    return { contentType: 'text/csv', filename: `${baseName}.csv`, data: csv };
+  }
+
+  // PDF
+  const buffer = await new Promise<Buffer>((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    const chunks: Buffer[] = [];
+    const stream = new Writable({
+      write(chunk, _enc, cb) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string));
+        cb();
+      },
+    });
+    doc.pipe(stream);
+
+    doc.fontSize(18).font('Helvetica-Bold').text('CRYPTRAC – Pattern Detection Report', { align: 'center' });
+    doc.fontSize(10).font('Helvetica').text(`Generated: ${result.summary.detectedAt.toISOString()}`, { align: 'center' });
+    doc.moveDown();
+
+    doc.fontSize(12).font('Helvetica-Bold').text('Summary');
+    doc.fontSize(9).font('Helvetica')
+      .text(`Total Patterns Detected: ${result.summary.totalPatterns}`)
+      .text(`Structuring: ${result.summary.structuringCount}`)
+      .text(`Rapid Movement: ${result.summary.rapidMovementCount}`)
+      .text(`Layering: ${result.summary.layeringCount}`)
+      .text(`Round Tripping: ${result.summary.roundTrippingCount}`);
+    doc.moveDown();
+
+    if (result.structuring.length > 0) {
+      doc.fontSize(12).font('Helvetica-Bold').text('Structuring Patterns');
+      for (const p of result.structuring) {
+        doc.fontSize(9).font('Helvetica')
+          .text(`Wallet: ${p.walletAddress}  |  TXs: ${p.transactions.length}  |  Total: $${p.totalAmount.toFixed(2)}  |  Window: ${p.timeWindowHours}h`);
+      }
+      doc.moveDown();
+    }
+
+    if (result.rapidMovement.length > 0) {
+      doc.fontSize(12).font('Helvetica-Bold').text('Rapid Movement Patterns');
+      for (const p of result.rapidMovement) {
+        doc.fontSize(9).font('Helvetica')
+          .text(`Wallet: ${p.walletAddress}  |  Delta: ${p.timeDeltaMinutes}m  |  Amount: $${p.amountUSD.toFixed(2)}`);
+      }
+      doc.moveDown();
+    }
+
+    if (result.layering.length > 0) {
+      doc.fontSize(12).font('Helvetica-Bold').text('Layering Patterns');
+      for (const p of result.layering) {
+        doc.fontSize(9).font('Helvetica')
+          .text(`Origin: ${p.originAddress}  →  Final: ${p.finalAddress}  |  Hops: ${p.hops}  |  Volume: $${p.totalVolumeUSD.toFixed(2)}`);
+      }
+      doc.moveDown();
+    }
+
+    if (result.roundTripping.length > 0) {
+      doc.fontSize(12).font('Helvetica-Bold').text('Round Tripping Patterns');
+      for (const p of result.roundTripping) {
+        doc.fontSize(9).font('Helvetica')
+          .text(`Origin: ${p.originAddress}  |  TXs: ${p.transactions.length}  |  Volume: $${p.totalVolumeUSD.toFixed(2)}  |  Duration: ${p.roundTripMinutes}m`);
+      }
+    }
+
+    doc.end();
+    stream.on('finish', () => resolve(Buffer.concat(chunks)));
+    stream.on('error', reject);
+  });
+
+  return { contentType: 'application/pdf', filename: `${baseName}.pdf`, data: buffer };
+}
+
+// ---------------------------------------------------------------------------
+// Enhanced Export: Network Graph
+// ---------------------------------------------------------------------------
+
+export async function exportNetworkGraph(): Promise<ExportResult> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const baseName = `network-graph-${timestamp}`;
+
+  const graph: TransactionGraph = await networkService.buildTransactionGraph();
+
+  logger.info('Generating network graph export', {
+    nodes: graph.nodes.length,
+    edges: graph.edges.length,
+  });
+
+  return {
+    contentType: 'application/json',
+    filename: `${baseName}.json`,
+    data: JSON.stringify(graph, null, 2),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Export Jobs
+// ---------------------------------------------------------------------------
+
+export function scheduleExport(
+  userId: string,
+  exportType: string,
+  format: string,
+  filters?: Record<string, unknown>
+): ExportJob {
+  const job: ExportJob = {
+    id: uuidv4(),
+    userId,
+    exportType,
+    format: format as ExportJob['format'],
+    status: 'pending',
+    filters,
+    createdAt: new Date(),
+  };
+  exportJobs.set(job.id, job);
+
+  logger.info('Export job scheduled', { jobId: job.id, exportType, format });
+
+  // Process job asynchronously
+  void processExportJob(job);
+
+  // Return a snapshot (not a reference) so the initial 'pending' status is preserved
+  return { ...job };
+}
+
+async function processExportJob(job: ExportJob): Promise<void> {
+  // Yield once so that `scheduleExport` can return the 'pending' snapshot before
+  // we transition the job to 'processing'.
+  await Promise.resolve();
+
+  const stored = exportJobs.get(job.id);
+  if (!stored) return;
+
+  stored.status = 'processing';
+  exportJobs.set(job.id, stored);
+
+  try {
+    let result: ExportResult;
+    const fmt = job.format as 'csv' | 'json' | 'pdf';
+
+    switch (job.exportType) {
+      case 'analytics':
+        result = await exportAnalyticsReport(fmt);
+        break;
+      case 'patterns':
+        result = await exportPatternReport(fmt);
+        break;
+      case 'network-graph':
+        result = await exportNetworkGraph();
+        break;
+      case 'audit-log':
+        result = await exportAuditLog(
+          (job.filters ?? {}) as AuditFilter,
+          fmt
+        );
+        break;
+      default:
+        throw new Error(`Unsupported export type: ${job.exportType}`);
+    }
+
+    const dataSize = Buffer.isBuffer(result.data)
+      ? result.data.length
+      : Buffer.byteLength(result.data as string);
+
+    stored.status = 'completed';
+    stored.completedAt = new Date();
+    stored.fileSize = dataSize;
+    exportJobs.set(job.id, stored);
+    logger.info('Export job completed', { jobId: job.id, fileSize: dataSize });
+  } catch (err) {
+    stored.status = 'failed';
+    stored.completedAt = new Date();
+    stored.error = err instanceof Error ? err.message : String(err);
+    exportJobs.set(job.id, stored);
+    logger.error('Export job failed', { jobId: job.id, error: stored.error });
+  }
+}
+
+export function getExportJob(jobId: string): ExportJob | undefined {
+  return exportJobs.get(jobId);
+}
+
+export function getExportHistory(userId: string): ExportJob[] {
+  return Array.from(exportJobs.values())
+    .filter((j) => j.userId === userId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}

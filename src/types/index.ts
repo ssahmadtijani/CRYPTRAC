@@ -827,3 +827,45 @@ export interface RiskPath {
   maxRiskLevel: RiskLevel;
   containsSanctioned: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// WebSocket Event Types
+// ---------------------------------------------------------------------------
+
+export enum WSEventType {
+  TRANSACTION_CREATED = 'TRANSACTION_CREATED',
+  TRANSACTION_FLAGGED = 'TRANSACTION_FLAGGED',
+  COMPLIANCE_ALERT = 'COMPLIANCE_ALERT',
+  RISK_LEVEL_CHANGED = 'RISK_LEVEL_CHANGED',
+  CASE_CREATED = 'CASE_CREATED',
+  CASE_STATUS_CHANGED = 'CASE_STATUS_CHANGED',
+  PATTERN_DETECTED = 'PATTERN_DETECTED',
+  KPI_UPDATE = 'KPI_UPDATE',
+  WALLET_SANCTIONED = 'WALLET_SANCTIONED',
+  SYSTEM_ALERT = 'SYSTEM_ALERT',
+}
+
+export interface WSEvent {
+  type: WSEventType;
+  payload: unknown;
+  timestamp: Date;
+  userId?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Export Job Types
+// ---------------------------------------------------------------------------
+
+export interface ExportJob {
+  id: string;
+  userId: string;
+  exportType: string;
+  format: 'csv' | 'json' | 'pdf';
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  filters?: Record<string, unknown>;
+  resultUrl?: string;
+  fileSize?: number;
+  createdAt: Date;
+  completedAt?: Date;
+  error?: string;
+}

@@ -18,11 +18,13 @@ import {
   NotificationType,
   NotificationPriority,
   UserRole,
+  WSEventType,
 } from '../types';
 import { CreateCaseInput } from '../validators/schemas';
 import { logger } from '../utils/logger';
 import { broadcastToRoles, createNotification } from './notification.service';
 import { evaluateCase } from './alert.service';
+import { eventBus } from '../utils/eventBus';
 
 // ---------------------------------------------------------------------------
 // In-memory stores
@@ -149,6 +151,19 @@ export function createCase(data: CreateCaseInput, createdById: string): Case {
     referenceId: newCase.id,
     referenceType: 'CASE',
   }).catch((err) => logger.error('Failed to broadcast CASE_CREATED notification', { error: err }));
+
+  // Emit WebSocket CASE_CREATED event
+  eventBus.emit('ws:broadcast', {
+    type: WSEventType.CASE_CREATED,
+    payload: {
+      caseId: newCase.id,
+      caseNumber: newCase.caseNumber,
+      category: newCase.category,
+      priority: newCase.priority,
+      status: newCase.status,
+    },
+    timestamp: new Date(),
+  });
 
   // Evaluate unassigned case alert rules
   evaluateCase(newCase, 'CREATED').catch((err) =>
@@ -307,6 +322,18 @@ export function updateCaseStatus(
       logger.error('Failed to evaluate case escalation alert rules', { error: err })
     );
   }
+
+  // Emit WebSocket CASE_STATUS_CHANGED event
+  eventBus.emit('ws:broadcast', {
+    type: WSEventType.CASE_STATUS_CHANGED,
+    payload: {
+      caseId: updated.id,
+      caseNumber: updated.caseNumber,
+      previousStatus,
+      newStatus,
+    },
+    timestamp: new Date(),
+  });
 
   return updated;
 }

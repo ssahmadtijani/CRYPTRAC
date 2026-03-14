@@ -10,6 +10,7 @@ import {
 } from '../types';
 import StatsCard from '../components/StatsCard';
 import { RiskBadge, StatusBadge } from '../components/Badges';
+import LiveActivityFeed from '../components/LiveActivityFeed';
 
 export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -89,71 +90,79 @@ export default function Dashboard() {
             />
           </div>
 
-          <div className="section">
-            <div className="section-header">
-              <h2 className="section-title">Recent Transactions</h2>
-              <Link to="/transactions" className="btn btn-ghost btn-sm">
-                View all →
-              </Link>
+          <div className="dashboard-main-grid">
+            <div className="dashboard-main-content">
+              <div className="section">
+                <div className="section-header">
+                  <h2 className="section-title">Recent Transactions</h2>
+                  <Link to="/transactions" className="btn btn-ghost btn-sm">
+                    View all →
+                  </Link>
+                </div>
+
+                {recent.length === 0 ? (
+                  <div className="empty-state">No transactions yet.</div>
+                ) : (
+                  <div className="table-wrapper">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Hash</th>
+                          <th>Type</th>
+                          <th>Asset</th>
+                          <th>Amount USD</th>
+                          <th>Risk</th>
+                          <th>Status</th>
+                          <th>Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recent.map((tx) => (
+                          <tr key={tx.id}>
+                            <td>
+                              <Link to={`/transactions/${tx.id}`} className="link">
+                                {tx.txHash.slice(0, 10)}…
+                              </Link>
+                            </td>
+                            <td>{tx.type}</td>
+                            <td>{tx.asset}</td>
+                            <td>${tx.amountUSD.toLocaleString()}</td>
+                            <td>
+                              <RiskBadge level={tx.riskLevel} />
+                            </td>
+                            <td>
+                              <StatusBadge status={tx.complianceStatus} />
+                            </td>
+                            <td>
+                              {new Date(tx.timestamp).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div className="quick-links">
+                <Link to="/transactions" className="quick-link-card">
+                  <span className="quick-link-icon">↔</span>
+                  <span>Transactions</span>
+                </Link>
+                <Link to="/wallets" className="quick-link-card">
+                  <span className="quick-link-icon">🔑</span>
+                  <span>Wallets</span>
+                </Link>
+                <Link to="/compliance" className="quick-link-card">
+                  <span className="quick-link-icon">📋</span>
+                  <span>Compliance</span>
+                </Link>
+              </div>
             </div>
 
-            {recent.length === 0 ? (
-              <div className="empty-state">No transactions yet.</div>
-            ) : (
-              <div className="table-wrapper">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Hash</th>
-                      <th>Type</th>
-                      <th>Asset</th>
-                      <th>Amount USD</th>
-                      <th>Risk</th>
-                      <th>Status</th>
-                      <th>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recent.map((tx) => (
-                      <tr key={tx.id}>
-                        <td>
-                          <Link to={`/transactions/${tx.id}`} className="link">
-                            {tx.txHash.slice(0, 10)}…
-                          </Link>
-                        </td>
-                        <td>{tx.type}</td>
-                        <td>{tx.asset}</td>
-                        <td>${tx.amountUSD.toLocaleString()}</td>
-                        <td>
-                          <RiskBadge level={tx.riskLevel} />
-                        </td>
-                        <td>
-                          <StatusBadge status={tx.complianceStatus} />
-                        </td>
-                        <td>
-                          {new Date(tx.timestamp).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div className="quick-links">
-            <Link to="/transactions" className="quick-link-card">
-              <span className="quick-link-icon">↔</span>
-              <span>Transactions</span>
-            </Link>
-            <Link to="/wallets" className="quick-link-card">
-              <span className="quick-link-icon">🔑</span>
-              <span>Wallets</span>
-            </Link>
-            <Link to="/compliance" className="quick-link-card">
-              <span className="quick-link-icon">📋</span>
-              <span>Compliance</span>
-            </Link>
+            <div className="dashboard-sidebar">
+              <LiveActivityFeed />
+            </div>
           </div>
         </>
       )}

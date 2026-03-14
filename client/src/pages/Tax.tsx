@@ -10,6 +10,7 @@ import {
 } from '../types';
 import StatsCard from '../components/StatsCard';
 import Toast from '../components/Toast';
+import ExportButton from '../components/ExportButton';
 
 // USD_TO_NGN mirrors the backend constant (src/services/tax-engine.service.ts).
 // Both must be updated together if the rate changes.
@@ -119,10 +120,13 @@ export default function Tax() {
       )}
 
       <div className="page-header">
-        <h1 className="page-title">Tax Summary</h1>
-        <p className="page-subtitle">
-          Calculate your Nigerian crypto tax liability — Capital gains (10%) + Income (10%)
-        </p>
+        <div>
+          <h1 className="page-title">Tax Summary</h1>
+          <p className="page-subtitle">
+            Calculate your Nigerian crypto tax liability — Capital gains (10%) + Income (10%)
+          </p>
+        </div>
+        <ExportButton endpoint="/export/tax-assessments" filename="tax-assessments" />
       </div>
 
       {/* Action Bar */}

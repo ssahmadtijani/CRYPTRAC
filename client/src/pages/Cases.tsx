@@ -12,6 +12,7 @@ import {
 import Toast from '../components/Toast';
 import { AxiosError } from 'axios';
 import { ApiResponse } from '../types';
+import ExportButton from '../components/ExportButton';
 
 // ---------------------------------------------------------------------------
 // Badge helpers
@@ -161,9 +162,12 @@ export default function Cases() {
           <h1 className="page-title">Cases</h1>
           <p className="page-subtitle">Manage compliance cases and investigations</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          + New Case
-        </button>
+        <div className="page-header-actions">
+          <ExportButton endpoint="/export/cases" filename="cases" />
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            + New Case
+          </button>
+        </div>
       </div>
 
       {/* Metrics cards */}

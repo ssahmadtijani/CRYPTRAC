@@ -9,6 +9,7 @@ import {
 import { StatusBadge } from '../components/Badges';
 import Toast from '../components/Toast';
 import { AxiosError } from 'axios';
+import ExportButton from '../components/ExportButton';
 
 export default function Compliance() {
   const [reports, setReports] = useState<ComplianceReport[]>([]);
@@ -88,10 +89,13 @@ export default function Compliance() {
       )}
 
       <div className="page-header">
-        <h1 className="page-title">Compliance</h1>
-        <p className="page-subtitle">
-          Run compliance checks, generate SARs, and manage reports
-        </p>
+        <div>
+          <h1 className="page-title">Compliance</h1>
+          <p className="page-subtitle">
+            Run compliance checks, generate SARs, and manage reports
+          </p>
+        </div>
+        <ExportButton endpoint="/export/compliance-reports" filename="compliance-reports" />
       </div>
 
       {/* Actions Panel */}

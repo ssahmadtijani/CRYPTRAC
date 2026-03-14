@@ -16,6 +16,9 @@ import {
 } from 'recharts';
 import { analyticsApi } from '../api/analytics';
 import { RiskBadge } from '../components/Badges';
+import ExportButton from '../components/ExportButton';
+import ConnectionStatus from '../components/ConnectionStatus';
+import { useWebSocket } from '../hooks/useWebSocket';
 import type {
   AnalyticsKPIs,
   TimeSeriesPoint,
@@ -103,6 +106,9 @@ export default function Analytics() {
   const [range, setRange] = useState(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [newDataAvailable, setNewDataAvailable] = useState(false);
+
+  const { connectionStatus, lastEvent } = useWebSocket();
 
   const loadTimeSeries = useCallback(async () => {
     try {
@@ -116,6 +122,47 @@ export default function Analytics() {
   useEffect(() => {
     loadTimeSeries();
   }, [loadTimeSeries]);
+
+  // Show refresh banner when KPI or transaction events arrive via WebSocket
+  useEffect(() => {
+    if (!lastEvent) return;
+    if (
+      lastEvent.type === 'KPI_UPDATE' ||
+      lastEvent.type === 'TRANSACTION_CREATED' ||
+      lastEvent.type === 'TRANSACTION_FLAGGED'
+    ) {
+      setNewDataAvailable(true);
+    }
+  }, [lastEvent]);
+
+  const handleRefresh = useCallback(async () => {
+    setNewDataAvailable(false);
+    setLoading(true);
+    try {
+      const [
+        kpisRes,
+        riskRes,
+        assetRes,
+        walletsRes,
+        complianceRes,
+      ] = await Promise.all([
+        analyticsApi.getKPIs(),
+        analyticsApi.getRiskDistribution(),
+        analyticsApi.getAssetBreakdown(),
+        analyticsApi.getTopWallets(10, 'risk'),
+        analyticsApi.getComplianceOverview(),
+      ]);
+      setKpis(kpisRes.data.data ?? null);
+      setRiskDist(riskRes.data.data ?? []);
+      setAssetBreakdown(assetRes.data.data ?? []);
+      setTopWallets(walletsRes.data.data ?? []);
+      setCompliance(complianceRes.data.data ?? []);
+    } catch (err) {
+      console.error('Refresh error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -166,9 +213,21 @@ export default function Analytics() {
   return (
     <div className="page analytics-page">
       <div className="page-header">
-        <h1 className="page-title">Analytics Dashboard</h1>
-        <p className="page-subtitle">Advanced metrics, pattern detection & network analysis</p>
+        <div>
+          <h1 className="page-title">Analytics Dashboard</h1>
+          <p className="page-subtitle">Advanced metrics, pattern detection & network analysis</p>
+        </div>
+        <div className="page-header-actions">
+          <ConnectionStatus status={connectionStatus} />
+          <ExportButton endpoint="/export/analytics" filename="analytics-report" />
+        </div>
       </div>
+
+      {newDataAvailable && (
+        <div className="refresh-banner" onClick={() => void handleRefresh()}>
+          📊 New data available — <strong>Click to refresh</strong>
+        </div>
+      )}
 
       {error && <div className="alert alert-error">{error}</div>}
 
