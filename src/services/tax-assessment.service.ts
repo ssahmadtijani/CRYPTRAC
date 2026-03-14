@@ -428,7 +428,7 @@ export async function getTaxpayerSummaries(
         (sum, a) => sum + a.totalTransactions,
         0
       );
-      const latest = userAssessments[0]; // already sorted desc by generatedAt
+      const latest = userAssessments[0];
       const lastActivity = latest?.generatedAt;
 
       return {

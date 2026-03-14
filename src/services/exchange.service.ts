@@ -370,7 +370,7 @@ export async function syncExchangeData(
       walletAddress: tx.walletAddress ?? null,
       timestamp: tx.timestamp,
     })),
-    skipDuplicates: false,
+    skipDuplicates: true,
   });
 
   const updated = await prisma.exchangeConnection.update({

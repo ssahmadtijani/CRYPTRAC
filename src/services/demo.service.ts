@@ -306,6 +306,13 @@ async function cleanupDemoData(): Promise<void> {
 
   if (demoUserIds.length === 0) return;
 
+  // Find all transaction IDs belonging to demo users for FK-safe compliance report cleanup
+  const demoTxs = await prisma.transaction.findMany({
+    where: { userId: { in: demoUserIds } },
+    select: { id: true },
+  });
+  const demoTxIds = demoTxs.map((t) => t.id);
+
   await prisma.taxAssessment.deleteMany({ where: { userId: { in: demoUserIds } } });
   await prisma.taxableEvent.deleteMany({ where: { userId: { in: demoUserIds } } });
   await prisma.costBasisLot.deleteMany({ where: { userId: { in: demoUserIds } } });
@@ -313,11 +320,11 @@ async function cleanupDemoData(): Promise<void> {
   await prisma.exchangeTransaction.deleteMany({ where: { userId: { in: demoUserIds } } });
   await prisma.exchangeConnection.deleteMany({ where: { userId: { in: demoUserIds } } });
   await prisma.complianceReport.deleteMany({ where: { reviewedById: { in: demoUserIds } } });
-  await prisma.complianceReport.deleteMany({
-    where: {
-      transaction: { userId: { in: demoUserIds } },
-    },
-  });
+  if (demoTxIds.length > 0) {
+    await prisma.complianceReport.deleteMany({
+      where: { transactionId: { in: demoTxIds } },
+    });
+  }
   await prisma.transaction.deleteMany({ where: { userId: { in: demoUserIds } } });
   await prisma.wallet.deleteMany({ where: { userId: { in: demoUserIds } } });
   await prisma.user.deleteMany({ where: { id: { in: demoUserIds } } });

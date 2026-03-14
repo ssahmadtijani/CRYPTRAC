@@ -22,6 +22,7 @@ export const USD_TO_NGN = 1550;
 const NIGERIAN_TAX_RATE = 0.10;
 const LONG_TERM_THRESHOLD_DAYS = 365;
 const HIGH_VALUE_NGN_THRESHOLD = 10_000_000;
+const MIN_LOT_AMOUNT = 0.000001; // Epsilon for floating-point lot consumption
 
 // ---------------------------------------------------------------------------
 // Helpers: map Prisma records to app types
@@ -157,7 +158,7 @@ export async function calculateCostBasis(
     if (!earliestDate) earliestDate = lot.acquiredAt;
 
     const newAmount = lot.amount - used;
-    if (newAmount <= 0.000001) {
+    if (newAmount <= MIN_LOT_AMOUNT) {
       await prisma.costBasisLot.delete({ where: { id: lot.id } });
     } else {
       await prisma.costBasisLot.update({
