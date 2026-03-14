@@ -67,6 +67,36 @@ export default function Sidebar() {
           </NavLink>
         )}
 
+        {(user?.role === UserRole.ADMIN || user?.role === UserRole.COMPLIANCE_OFFICER || user?.role === UserRole.ANALYST || user?.role === UserRole.AUDITOR) && (
+          <>
+            <div
+              style={{
+                padding: '0.75rem 1rem 0.25rem',
+                fontSize: '0.7rem',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+                borderTop: '1px solid var(--border)',
+                marginTop: '0.5rem',
+              }}
+            >
+              Regulatory
+            </div>
+            <NavLink to="/travel-rule" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+              <span className="sidebar-icon">🔄</span>
+              <span>Travel Rule</span>
+            </NavLink>
+            <NavLink to="/str-sar" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+              <span className="sidebar-icon">📋</span>
+              <span>STR/SAR Reports</span>
+            </NavLink>
+            <NavLink to="/filings" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+              <span className="sidebar-icon">📅</span>
+              <span>Filings</span>
+            </NavLink>
+          </>
+        )}
+
         {isAuthority && (
           <>
             <div

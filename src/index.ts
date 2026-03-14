@@ -24,6 +24,9 @@ import { auditRoutes } from './routes/audit.routes';
 import { exportRoutes } from './routes/export.routes';
 import { analyticsRoutes } from './routes/analytics.routes';
 import { websocketRoutes } from './routes/websocket.routes';
+import { travelRuleRoutes } from './routes/travel-rule.routes';
+import { strSarRoutes } from './routes/str-sar.routes';
+import { regulatoryFilingRoutes } from './routes/regulatory-filing.routes';
 import { initializeWebSocket } from './services/websocket.service';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
@@ -72,6 +75,9 @@ app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/export', exportRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/ws', websocketRoutes);
+app.use('/api/v1/travel-rule', travelRuleRoutes);
+app.use('/api/v1/str-sar', strSarRoutes);
+app.use('/api/v1/filings', regulatoryFilingRoutes);
 
 // Error handling
 app.use(errorHandler);

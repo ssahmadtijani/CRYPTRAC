@@ -18,6 +18,9 @@ import Notifications from './pages/Notifications';
 import AlertRules from './pages/AlertRules';
 import AuditLog from './pages/AuditLog';
 import Analytics from './pages/Analytics';
+import TravelRule from './pages/TravelRule';
+import STRSARReports from './pages/STRSARReports';
+import RegulatoryFilings from './pages/RegulatoryFilings';
 import './App.css';
 
 export default function App() {
@@ -52,6 +55,9 @@ export default function App() {
             <Route path="/tax" element={<Tax />} />
             <Route path="/authority" element={<Authority />} />
             <Route path="/authority/*" element={<Authority />} />
+            <Route path="/travel-rule" element={<TravelRule />} />
+            <Route path="/str-sar" element={<STRSARReports />} />
+            <Route path="/filings" element={<RegulatoryFilings />} />
           </Route>
 
           {/* Fallback */}
