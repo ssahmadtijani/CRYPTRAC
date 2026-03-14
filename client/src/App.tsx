@@ -16,6 +16,7 @@ import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail';
 import Notifications from './pages/Notifications';
 import AlertRules from './pages/AlertRules';
+import AuditLog from './pages/AuditLog';
 import './App.css';
 
 export default function App() {
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="/cases/:id" element={<CaseDetail />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/alert-rules" element={<AlertRules />} />
+            <Route path="/audit" element={<AuditLog />} />
             <Route path="/exchanges" element={<Exchanges />} />
             <Route path="/tax" element={<Tax />} />
             <Route path="/authority" element={<Authority />} />

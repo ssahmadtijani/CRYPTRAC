@@ -17,7 +17,8 @@ import {
   caseFilterSchema,
 } from '../validators/schemas';
 import * as caseService from '../services/case.service';
-import { UserRole, ApiResponse, Case, CaseNote, CaseTimelineEntry, CaseDashboardMetrics } from '../types';
+import * as auditService from '../services/audit.service';
+import { UserRole, ApiResponse, Case, CaseNote, CaseTimelineEntry, CaseDashboardMetrics, AuditAction } from '../types';
 
 export const caseRoutes = Router();
 
@@ -36,6 +37,18 @@ caseRoutes.post(
     try {
       const userId = req.user!.userId;
       const newCase = caseService.createCase(req.body, userId);
+
+      auditService.logAction({
+        userId,
+        userEmail: req.user!.email,
+        userRole: req.user!.role,
+        action: AuditAction.CASE_CREATED,
+        entityType: 'Case',
+        entityId: newCase.id,
+        description: `Case ${newCase.caseNumber} created: ${newCase.title}`,
+        metadata: { caseNumber: newCase.caseNumber, category: newCase.category, priority: newCase.priority },
+      });
+
       const response: ApiResponse<Case> = {
         success: true,
         data: newCase,
@@ -152,6 +165,18 @@ caseRoutes.patch(
         userId,
         req.body.resolution
       );
+
+      auditService.logAction({
+        userId,
+        userEmail: req.user!.email,
+        userRole: req.user!.role,
+        action: AuditAction.CASE_STATUS_CHANGED,
+        entityType: 'Case',
+        entityId: updated.id,
+        description: `Case ${updated.caseNumber} status changed to ${req.body.status}`,
+        metadata: { caseNumber: updated.caseNumber, newStatus: req.body.status },
+      });
+
       const response: ApiResponse<Case> = { success: true, data: updated };
       res.status(200).json(response);
     } catch (error) {
@@ -177,6 +202,18 @@ caseRoutes.patch(
         req.body.assigneeId,
         userId
       );
+
+      auditService.logAction({
+        userId,
+        userEmail: req.user!.email,
+        userRole: req.user!.role,
+        action: AuditAction.CASE_ASSIGNED,
+        entityType: 'Case',
+        entityId: updated.id,
+        description: `Case ${updated.caseNumber} assigned to ${req.body.assigneeId}`,
+        metadata: { caseNumber: updated.caseNumber, assigneeId: req.body.assigneeId },
+      });
+
       const response: ApiResponse<Case> = { success: true, data: updated };
       res.status(200).json(response);
     } catch (error) {
@@ -229,6 +266,18 @@ caseRoutes.post(
         req.body.noteType,
         req.body.attachments
       );
+
+      auditService.logAction({
+        userId,
+        userEmail: req.user!.email,
+        userRole: req.user!.role,
+        action: AuditAction.CASE_NOTE_ADDED,
+        entityType: 'Case',
+        entityId: req.params.id as string,
+        description: `Note added to case ${req.params.id}`,
+        metadata: { noteId: note.id, noteType: req.body.noteType },
+      });
+
       const response: ApiResponse<CaseNote> = { success: true, data: note };
       res.status(201).json(response);
     } catch (error) {
