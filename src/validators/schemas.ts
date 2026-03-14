@@ -11,6 +11,7 @@ import {
   CaseStatus,
   CasePriority,
   CaseCategory,
+  AuditAction,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -236,3 +237,31 @@ export type CreateAlertRuleInput = z.infer<typeof createAlertRuleSchema>;
 export type UpdateAlertRuleInput = z.infer<typeof updateAlertRuleSchema>;
 export type NotificationPreferencesInput = z.infer<typeof notificationPreferencesSchema>;
 export type NotificationFilterInput = z.infer<typeof notificationFilterSchema>;
+
+// ---------------------------------------------------------------------------
+// Audit Schemas
+// ---------------------------------------------------------------------------
+
+export const auditFilterSchema = z.object({
+  userId: z.string().optional(),
+  action: z.nativeEnum(AuditAction).optional(),
+  entityType: z.string().optional(),
+  entityId: z.string().optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+});
+
+export type AuditFilterInput = z.infer<typeof auditFilterSchema>;
+
+// ---------------------------------------------------------------------------
+// Export Schemas
+// ---------------------------------------------------------------------------
+
+export const exportQuerySchema = z.object({
+  format: z.enum(['csv', 'json', 'pdf']).default('json'),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  userId: z.string().optional(),
+});

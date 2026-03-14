@@ -19,6 +19,8 @@ import { xmlImportRoutes } from './routes/xml-import.routes';
 import { caseRoutes } from './routes/case.routes';
 import { notificationRoutes } from './routes/notification.routes';
 import { alertRoutes } from './routes/alert.routes';
+import { auditRoutes } from './routes/audit.routes';
+import { exportRoutes } from './routes/export.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 
@@ -62,6 +64,8 @@ app.use('/api/v1/exchange-reports', xmlImportRoutes);
 app.use('/api/v1/cases', caseRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/alerts', alertRoutes);
+app.use('/api/v1/audit', auditRoutes);
+app.use('/api/v1/export', exportRoutes);
 
 // Error handling
 app.use(errorHandler);

@@ -15,12 +15,14 @@ const navItems = [
 
 const authorityRoles = [UserRole.ADMIN, UserRole.COMPLIANCE_OFFICER, UserRole.AUDITOR];
 const alertRulesRoles = [UserRole.ADMIN, UserRole.COMPLIANCE_OFFICER];
+const auditRoles = [UserRole.ADMIN, UserRole.AUDITOR, UserRole.COMPLIANCE_OFFICER];
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
 
   const isAuthority = user && authorityRoles.includes(user.role as UserRole);
   const canManageAlerts = user && alertRulesRoles.includes(user.role as UserRole);
+  const canViewAudit = user && auditRoles.includes(user.role as UserRole);
 
   return (
     <aside className="sidebar">
@@ -51,6 +53,16 @@ export default function Sidebar() {
           >
             <span className="sidebar-icon">⚡</span>
             <span>Alert Rules</span>
+          </NavLink>
+        )}
+
+        {canViewAudit && (
+          <NavLink
+            to="/audit"
+            className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+          >
+            <span className="sidebar-icon">📜</span>
+            <span>Audit Log</span>
           </NavLink>
         )}
 

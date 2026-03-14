@@ -498,6 +498,66 @@ export interface TaxAuthorityDashboard {
 }
 
 // ---------------------------------------------------------------------------
+// Audit Trail Types
+// ---------------------------------------------------------------------------
+
+export enum AuditAction {
+  USER_LOGIN = 'USER_LOGIN',
+  USER_REGISTER = 'USER_REGISTER',
+  TRANSACTION_CREATED = 'TRANSACTION_CREATED',
+  TRANSACTION_UPDATED = 'TRANSACTION_UPDATED',
+  COMPLIANCE_REPORT_FILED = 'COMPLIANCE_REPORT_FILED',
+  COMPLIANCE_REPORT_REVIEWED = 'COMPLIANCE_REPORT_REVIEWED',
+  CASE_CREATED = 'CASE_CREATED',
+  CASE_STATUS_CHANGED = 'CASE_STATUS_CHANGED',
+  CASE_ASSIGNED = 'CASE_ASSIGNED',
+  CASE_NOTE_ADDED = 'CASE_NOTE_ADDED',
+  WALLET_REGISTERED = 'WALLET_REGISTERED',
+  WALLET_RISK_UPDATED = 'WALLET_RISK_UPDATED',
+  SANCTIONS_CHECK = 'SANCTIONS_CHECK',
+  ALERT_RULE_CREATED = 'ALERT_RULE_CREATED',
+  ALERT_RULE_UPDATED = 'ALERT_RULE_UPDATED',
+  NOTIFICATION_SENT = 'NOTIFICATION_SENT',
+  TAX_ASSESSMENT_GENERATED = 'TAX_ASSESSMENT_GENERATED',
+  TAX_ASSESSMENT_REVIEWED = 'TAX_ASSESSMENT_REVIEWED',
+  EXPORT_GENERATED = 'EXPORT_GENERATED',
+  DATA_ACCESSED = 'DATA_ACCESSED',
+  SETTINGS_CHANGED = 'SETTINGS_CHANGED',
+}
+
+export interface AuditEntry {
+  id: string;
+  timestamp: Date;
+  userId: string;
+  userEmail: string;
+  userRole: UserRole;
+  action: AuditAction;
+  entityType: string;
+  entityId: string;
+  description: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface AuditFilter {
+  userId?: string;
+  action?: AuditAction;
+  entityType?: string;
+  entityId?: string;
+  startDate?: Date;
+  endDate?: Date;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface AuditStats {
+  total: number;
+  byAction: Record<string, number>;
+  byEntityType: Record<string, number>;
+  byUser: Record<string, number>;
+  recentActivity: AuditEntry[];
+}
+
+// ---------------------------------------------------------------------------
 // Notification & Alert Types
 // ---------------------------------------------------------------------------
 
