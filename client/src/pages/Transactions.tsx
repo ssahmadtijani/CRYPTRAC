@@ -10,6 +10,7 @@ import {
 import { RiskBadge, StatusBadge } from '../components/Badges';
 import Toast from '../components/Toast';
 import { AxiosError } from 'axios';
+import ExportButton from '../components/ExportButton';
 
 export default function Transactions() {
   const navigate = useNavigate();
@@ -94,9 +95,12 @@ export default function Transactions() {
           <h1 className="page-title">Transactions</h1>
           <p className="page-subtitle">All recorded crypto transactions</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          + New Transaction
-        </button>
+        <div className="page-header-actions">
+          <ExportButton endpoint="/export/transactions" filename="transactions" />
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            + New Transaction
+          </button>
+        </div>
       </div>
 
       {loading ? (
