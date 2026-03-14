@@ -139,3 +139,18 @@ export function getUserById(id: string): Omit<User, 'passwordHash'> | null {
   const { passwordHash: _ph, ...safeUser } = user;
   return safeUser;
 }
+
+/**
+ * Returns all users (without password hashes).
+ */
+export function getAllUsers(): Omit<User, 'passwordHash'>[] {
+  return Array.from(users.values()).map(({ passwordHash: _ph, ...u }) => u);
+}
+
+/**
+ * Injects a pre-built user directly (used by demo seeder).
+ */
+export function injectUser(user: User): void {
+  users.set(user.id, user);
+  usersByEmail.set(user.email, user);
+}
