@@ -128,6 +128,42 @@ export function initializeWebSocket(server: HttpServer): WebSocketServer {
     sendToRoles(roles, event);
   });
 
+  // Travel Rule compliance check failure → COMPLIANCE_OFFICER and ADMIN
+  eventBus.on('travel-rule:compliance-check', (record: unknown) => {
+    sendToRoles([UserRole.COMPLIANCE_OFFICER, UserRole.ADMIN], {
+      type: WSEventType.COMPLIANCE_ALERT,
+      payload: record,
+      timestamp: new Date(),
+    });
+  });
+
+  // STR/SAR created → COMPLIANCE_OFFICER and ADMIN
+  eventBus.on('str-sar:created', (report: unknown) => {
+    sendToRoles([UserRole.COMPLIANCE_OFFICER, UserRole.ADMIN], {
+      type: WSEventType.STR_SAR_CREATED,
+      payload: report,
+      timestamp: new Date(),
+    });
+  });
+
+  // STR/SAR filed → COMPLIANCE_OFFICER, ADMIN, and AUDITOR
+  eventBus.on('str-sar:filed', (report: unknown) => {
+    sendToRoles([UserRole.COMPLIANCE_OFFICER, UserRole.ADMIN, UserRole.AUDITOR], {
+      type: WSEventType.STR_SAR_FILED,
+      payload: report,
+      timestamp: new Date(),
+    });
+  });
+
+  // Filing overdue → COMPLIANCE_OFFICER and ADMIN
+  eventBus.on('filing:overdue', (filing: unknown) => {
+    sendToRoles([UserRole.COMPLIANCE_OFFICER, UserRole.ADMIN], {
+      type: WSEventType.FILING_OVERDUE,
+      payload: filing,
+      timestamp: new Date(),
+    });
+  });
+
   logger.info('WebSocket server initialized');
   return wss;
 }

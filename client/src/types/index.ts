@@ -768,3 +768,220 @@ export interface RiskPath {
   maxRiskLevel: RiskLevel;
   containsSanctioned: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Travel Rule Types (FATF Recommendation 16)
+// ---------------------------------------------------------------------------
+
+export enum TravelRuleStatus {
+  PENDING = 'PENDING',
+  ORIGINATOR_INFO_COLLECTED = 'ORIGINATOR_INFO_COLLECTED',
+  BENEFICIARY_INFO_REQUESTED = 'BENEFICIARY_INFO_REQUESTED',
+  BENEFICIARY_INFO_RECEIVED = 'BENEFICIARY_INFO_RECEIVED',
+  COMPLIANT = 'COMPLIANT',
+  NON_COMPLIANT = 'NON_COMPLIANT',
+  EXEMPT = 'EXEMPT',
+  EXPIRED = 'EXPIRED',
+}
+
+export interface OriginatorInfo {
+  name: string;
+  accountNumber: string;
+  institutionName?: string;
+  institutionId?: string;
+  address?: string;
+  dateOfBirth?: string;
+  placeOfBirth?: string;
+  nationalId?: string;
+  country: string;
+}
+
+export interface BeneficiaryInfo {
+  name: string;
+  accountNumber: string;
+  institutionName?: string;
+  institutionId?: string;
+  country?: string;
+}
+
+export interface TravelRuleRecord {
+  id: string;
+  transactionId: string;
+  originatorInfo: OriginatorInfo;
+  beneficiaryInfo: BeneficiaryInfo;
+  amount: number;
+  amountUSD: number;
+  asset: string;
+  network: string;
+  status: TravelRuleStatus;
+  thresholdApplied: number;
+  isAboveThreshold: boolean;
+  vaspOriginatorId?: string;
+  vaspBeneficiaryId?: string;
+  complianceNotes: string[];
+  requestedAt: string;
+  completedAt?: string;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VASPInfo {
+  id: string;
+  name: string;
+  leiCode?: string;
+  registrationNumber: string;
+  country: string;
+  regulatoryAuthority: string;
+  isVerified: boolean;
+  supportedNetworks: string[];
+  apiEndpoint?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TravelRuleStats {
+  total: number;
+  compliant: number;
+  nonCompliant: number;
+  pending: number;
+  exempt: number;
+  expired: number;
+  complianceRate: number;
+}
+
+// ---------------------------------------------------------------------------
+// STR/SAR Report Types
+// ---------------------------------------------------------------------------
+
+export enum STRSARStatus {
+  DRAFT = 'DRAFT',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  APPROVED = 'APPROVED',
+  FILED = 'FILED',
+  ACKNOWLEDGED = 'ACKNOWLEDGED',
+  REJECTED = 'REJECTED',
+  AMENDED = 'AMENDED',
+}
+
+export enum STRSARType {
+  STR = 'STR',
+  SAR = 'SAR',
+  CTR = 'CTR',
+}
+
+export enum SuspicionCategory {
+  MONEY_LAUNDERING = 'MONEY_LAUNDERING',
+  TERRORIST_FINANCING = 'TERRORIST_FINANCING',
+  FRAUD = 'FRAUD',
+  TAX_EVASION = 'TAX_EVASION',
+  SANCTIONS_VIOLATION = 'SANCTIONS_VIOLATION',
+  STRUCTURING = 'STRUCTURING',
+  LAYERING = 'LAYERING',
+  UNUSUAL_PATTERN = 'UNUSUAL_PATTERN',
+  DARKNET_ACTIVITY = 'DARKNET_ACTIVITY',
+  RANSOMWARE = 'RANSOMWARE',
+  OTHER = 'OTHER',
+}
+
+export interface STRSARReport {
+  id: string;
+  reportNumber: string;
+  type: STRSARType;
+  status: STRSARStatus;
+  subjectName: string;
+  subjectWalletAddresses: string[];
+  subjectIdentification?: string;
+  subjectCountry?: string;
+  suspicionCategories: SuspicionCategory[];
+  narrativeSummary: string;
+  indicatorsOfSuspicion: string[];
+  linkedTransactionIds: string[];
+  linkedCaseIds: string[];
+  linkedWalletAddresses: string[];
+  totalAmountUSD: number;
+  dateRangeStart: string;
+  dateRangeEnd: string;
+  filingInstitution: string;
+  filingOfficer: string;
+  filingOfficerUserId: string;
+  regulatoryAuthority: string;
+  createdAt: string;
+  updatedAt: string;
+  submittedAt?: string;
+  acknowledgedAt?: string;
+  reviewedBy?: string;
+  reviewNotes?: string;
+  amendmentOf?: string;
+  amendmentReason?: string;
+}
+
+export interface STRSARStats {
+  totalReports: number;
+  byType: Record<string, number>;
+  byStatus: Record<string, number>;
+  byCategory: Record<string, number>;
+  averageProcessingDays: number;
+  filedThisMonth: number;
+  filedThisYear: number;
+  pendingReview: number;
+}
+
+// ---------------------------------------------------------------------------
+// Regulatory Filing Types
+// ---------------------------------------------------------------------------
+
+export enum FilingType {
+  STR_SAR = 'STR_SAR',
+  CTR = 'CTR',
+  TRAVEL_RULE = 'TRAVEL_RULE',
+  PERIODIC_REPORT = 'PERIODIC_REPORT',
+  TAX_REPORT = 'TAX_REPORT',
+  SANCTIONS_REPORT = 'SANCTIONS_REPORT',
+}
+
+export enum FilingStatus {
+  UPCOMING = 'UPCOMING',
+  DUE_SOON = 'DUE_SOON',
+  OVERDUE = 'OVERDUE',
+  FILED = 'FILED',
+  CANCELLED = 'CANCELLED',
+}
+
+export interface RegulatoryFiling {
+  id: string;
+  filingType: FilingType;
+  title: string;
+  description: string;
+  regulatoryAuthority: string;
+  dueDate: string;
+  status: FilingStatus;
+  assignedTo?: string;
+  filedAt?: string;
+  filingReference?: string;
+  linkedReportIds: string[];
+  notes: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FilingCalendarEntry {
+  id: string;
+  filingType: FilingType;
+  title: string;
+  dueDate: string;
+  status: FilingStatus;
+  daysUntilDue: number;
+  assignedTo?: string;
+}
+
+export interface FilingDashboardMetrics {
+  totalFilings: number;
+  upcoming: number;
+  dueSoon: number;
+  overdue: number;
+  filed: number;
+  complianceScore: number;
+  nextDeadline?: FilingCalendarEntry;
+  overdueFilings: FilingCalendarEntry[];
+}

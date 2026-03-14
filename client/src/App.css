@@ -1477,3 +1477,346 @@ a:hover {
   height: 12px;
   border-width: 2px;
 }
+
+/* ============================================================
+   Phase 3C — Regulatory Compliance Engine
+   ============================================================ */
+
+/* ── Page Containers ─────────────────────────────────────── */
+.travel-rule-page,
+.str-sar-page,
+.filings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Travel Rule Status Badges ───────────────────────────── */
+.compliance-badge-compliant {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+.compliance-badge-non-compliant {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+.compliance-badge-pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+.compliance-badge-exempt {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.compliance-badge-expired {
+  background: rgba(239, 68, 68, 0.08);
+  color: #9f1239;
+}
+
+/* ── STR/SAR Workflow Status Badges ─────────────────────── */
+.str-sar-badge-draft {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.str-sar-badge-under-review {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+.str-sar-badge-approved {
+  background: rgba(20, 184, 166, 0.15);
+  color: #14b8a6;
+}
+.str-sar-badge-filed {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+.str-sar-badge-acknowledged {
+  background: rgba(16, 185, 129, 0.2);
+  color: #059669;
+}
+.str-sar-badge-rejected {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+.str-sar-badge-amended {
+  background: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+}
+
+/* ── Filing Status Badges ────────────────────────────────── */
+.filing-status-upcoming {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+.filing-status-due-soon {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+.filing-status-overdue {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+.filing-status-filed {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+.filing-status-cancelled {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+/* ── Calendar Grid ───────────────────────────────────────── */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  background: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.calendar-day-header {
+  background: var(--bg-elevated);
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.calendar-day {
+  background: var(--bg-surface);
+  min-height: 80px;
+  padding: 0.375rem;
+  cursor: pointer;
+  transition: background var(--transition);
+  position: relative;
+}
+
+.calendar-day:hover {
+  background: var(--bg-hover);
+}
+
+.calendar-day.other-month {
+  opacity: 0.4;
+}
+
+.calendar-day.today {
+  background: var(--accent-glow);
+}
+
+.calendar-day-number {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.calendar-event {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.375rem;
+  border-radius: 3px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.calendar-event-upcoming { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+.calendar-event-due-soon { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+.calendar-event-overdue  { background: rgba(239, 68, 68, 0.2);  color: #ef4444; }
+.calendar-event-filed    { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+
+/* ── Modal Form ──────────────────────────────────────────── */
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.modal-form .form-row.full {
+  grid-template-columns: 1fr;
+}
+
+/* ── Multi-value Input (wallet addresses, etc.) ─────────── */
+.multi-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  min-height: 2.5rem;
+  padding: 0.375rem;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: text;
+}
+
+.multi-input:focus-within {
+  border-color: var(--accent);
+}
+
+.multi-input-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.multi-input-tag button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-size: 0.875rem;
+}
+
+.multi-input-inner {
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  outline: none;
+  min-width: 120px;
+  flex: 1;
+}
+
+/* ── Narrative Textarea ──────────────────────────────────── */
+.narrative-textarea {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.875rem;
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* ── Status Workflow Progress Indicator ─────────────────── */
+.status-workflow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0.75rem 0;
+  overflow-x: auto;
+}
+
+.status-workflow-step {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.status-workflow-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.status-workflow-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  transition: all var(--transition);
+}
+
+.status-workflow-dot.active {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.status-workflow-dot.completed {
+  border-color: var(--success);
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+}
+
+.status-workflow-dot.rejected {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.status-workflow-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.status-workflow-connector {
+  width: 32px;
+  height: 2px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.status-workflow-connector.completed {
+  background: var(--success);
+}
+
+/* ── Overdue Row Highlight ───────────────────────────────── */
+.overdue-highlight {
+  border-left: 3px solid var(--danger);
+}
+
+/* ── Tab Navigation ──────────────────────────────────────── */
+.tab-nav {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+}
+
+.tab-nav-btn {
+  padding: 0.625rem 1.25rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  margin-bottom: -1px;
+}
+
+.tab-nav-btn:hover {
+  color: var(--text-primary);
+}
+
+.tab-nav-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
