@@ -364,6 +364,108 @@ export interface TaxAssessment {
 }
 
 // ---------------------------------------------------------------------------
+// Case Management Types
+// ---------------------------------------------------------------------------
+
+export enum CaseStatus {
+  OPEN = 'OPEN',
+  INVESTIGATING = 'INVESTIGATING',
+  ESCALATED = 'ESCALATED',
+  PENDING_REVIEW = 'PENDING_REVIEW',
+  RESOLVED = 'RESOLVED',
+  CLOSED = 'CLOSED',
+}
+
+export enum CasePriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
+
+export enum CaseCategory {
+  SUSPICIOUS_TRANSACTION = 'SUSPICIOUS_TRANSACTION',
+  SANCTIONS_HIT = 'SANCTIONS_HIT',
+  HIGH_RISK_WALLET = 'HIGH_RISK_WALLET',
+  TRAVEL_RULE_VIOLATION = 'TRAVEL_RULE_VIOLATION',
+  STRUCTURING = 'STRUCTURING',
+  UNUSUAL_PATTERN = 'UNUSUAL_PATTERN',
+  MANUAL_REFERRAL = 'MANUAL_REFERRAL',
+}
+
+export interface Case {
+  id: string;
+  caseNumber: string;
+  title: string;
+  description: string;
+  category: CaseCategory;
+  status: CaseStatus;
+  priority: CasePriority;
+  assigneeId?: string;
+  createdById: string;
+  transactionIds: string[];
+  walletAddresses: string[];
+  riskLevel: RiskLevel;
+  findings?: Record<string, unknown>;
+  resolution?: string;
+  resolvedById?: string;
+  resolvedAt?: Date;
+  escalatedTo?: string;
+  escalatedAt?: Date;
+  dueDate?: Date;
+  tags: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CaseNote {
+  id: string;
+  caseId: string;
+  authorId: string;
+  content: string;
+  noteType: 'INVESTIGATION' | 'EVIDENCE' | 'ESCALATION' | 'RESOLUTION' | 'GENERAL';
+  attachments?: string[];
+  createdAt: Date;
+}
+
+export interface CaseTimelineEntry {
+  id: string;
+  caseId: string;
+  action: string;
+  performedById: string;
+  previousValue?: string;
+  newValue?: string;
+  metadata?: Record<string, unknown>;
+  timestamp: Date;
+}
+
+export interface CaseFilter {
+  status?: CaseStatus;
+  priority?: CasePriority;
+  category?: CaseCategory;
+  assigneeId?: string;
+  riskLevel?: RiskLevel;
+  startDate?: Date;
+  endDate?: Date;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface CaseDashboardMetrics {
+  totalOpen: number;
+  totalInvestigating: number;
+  totalEscalated: number;
+  totalResolved: number;
+  totalClosed: number;
+  avgResolutionTimeHours: number;
+  casesByCategory: Record<string, number>;
+  casesByPriority: Record<string, number>;
+  overdueCount: number;
+  unassignedCount: number;
+}
+
+// ---------------------------------------------------------------------------
 // Tax Authority Portal Types
 // ---------------------------------------------------------------------------
 

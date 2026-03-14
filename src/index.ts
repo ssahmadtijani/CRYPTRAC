@@ -16,6 +16,7 @@ import { ingestionRoutes } from './routes/ingestion.routes';
 import { sanctionsRoutes } from './routes/sanctions.routes';
 import { riskRoutes } from './routes/risk.routes';
 import { xmlImportRoutes } from './routes/xml-import.routes';
+import { caseRoutes } from './routes/case.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 
@@ -56,6 +57,7 @@ app.use('/api/v1/ingestion', ingestionRoutes);
 app.use('/api/v1/sanctions', sanctionsRoutes);
 app.use('/api/v1/risk', riskRoutes);
 app.use('/api/v1/exchange-reports', xmlImportRoutes);
+app.use('/api/v1/cases', caseRoutes);
 
 // Error handling
 app.use(errorHandler);

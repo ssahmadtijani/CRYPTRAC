@@ -3,7 +3,15 @@
  */
 
 import { z } from 'zod';
-import { TransactionType, RiskLevel, ComplianceStatus, UserRole } from '../types';
+import {
+  TransactionType,
+  RiskLevel,
+  ComplianceStatus,
+  UserRole,
+  CaseStatus,
+  CasePriority,
+  CaseCategory,
+} from '../types';
 
 // ---------------------------------------------------------------------------
 // Transaction Schemas
@@ -110,3 +118,65 @@ export type TransactionFilterInput = z.infer<typeof transactionFilterSchema>;
 export type WalletInput = z.infer<typeof walletSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+// ---------------------------------------------------------------------------
+// Case Management Schemas
+// ---------------------------------------------------------------------------
+
+export const createCaseSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters').max(200),
+  description: z.string().min(10, 'Description must be at least 10 characters').max(5000),
+  category: z.nativeEnum(CaseCategory),
+  priority: z.nativeEnum(CasePriority).optional(),
+  transactionIds: z.array(z.string().uuid()).optional().default([]),
+  walletAddresses: z.array(z.string()).optional().default([]),
+  riskLevel: z.nativeEnum(RiskLevel).optional(),
+  dueDate: z.string().datetime().optional(),
+  tags: z.array(z.string()).optional().default([]),
+});
+
+export const updateCaseStatusSchema = z.object({
+  status: z.nativeEnum(CaseStatus),
+  resolution: z.string().min(10).max(5000).optional(),
+});
+
+export const assignCaseSchema = z.object({
+  assigneeId: z.string().uuid('Valid user ID required'),
+});
+
+export const addCaseNoteSchema = z.object({
+  content: z.string().min(1, 'Note content is required').max(10000),
+  noteType: z
+    .enum(['INVESTIGATION', 'EVIDENCE', 'ESCALATION', 'RESOLUTION', 'GENERAL'])
+    .optional()
+    .default('GENERAL'),
+  attachments: z.array(z.string()).optional().default([]),
+});
+
+export const linkTransactionSchema = z.object({
+  transactionId: z.string().uuid('Valid transaction ID required'),
+});
+
+export const linkWalletSchema = z.object({
+  walletAddress: z.string().min(1, 'Wallet address is required'),
+});
+
+export const updateCasePrioritySchema = z.object({
+  priority: z.nativeEnum(CasePriority),
+});
+
+export const caseFilterSchema = z.object({
+  status: z.nativeEnum(CaseStatus).optional(),
+  priority: z.nativeEnum(CasePriority).optional(),
+  category: z.nativeEnum(CaseCategory).optional(),
+  assigneeId: z.string().uuid().optional(),
+  riskLevel: z.nativeEnum(RiskLevel).optional(),
+  search: z.string().optional(),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).optional().default(20),
+});
+
+export type CreateCaseInput = z.infer<typeof createCaseSchema>;
+export type CaseFilterInput = z.infer<typeof caseFilterSchema>;

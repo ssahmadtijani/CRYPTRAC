@@ -10,10 +10,12 @@ import {
   RiskLevel,
   ComplianceStatus,
   ApiResponse,
+  CaseCategory,
 } from '../types';
 import { CreateTransactionInput } from '../validators/schemas';
 import { logger } from '../utils/logger';
 import { prisma } from '../lib/prisma';
+import { autoCreateCase } from './case.service';
 
 // ---------------------------------------------------------------------------
 // Risk scoring thresholds (USD)
@@ -129,6 +131,31 @@ export async function createTransaction(
     riskLevel,
     riskScore,
   });
+
+  // Auto-create an investigation case for high-risk transactions
+  if (riskScore >= 75 || riskLevel === RiskLevel.CRITICAL || riskLevel === RiskLevel.HIGH) {
+    // Check if the risk is specifically due to a sanctioned address
+    const senderSanctioned = SANCTIONED_ADDRESSES.has(data.senderAddress.toLowerCase());
+    const receiverSanctioned = SANCTIONED_ADDRESSES.has(data.receiverAddress.toLowerCase());
+    const isSanctionsHit = senderSanctioned || receiverSanctioned;
+
+    const category = isSanctionsHit
+      ? CaseCategory.SANCTIONS_HIT
+      : CaseCategory.SUSPICIOUS_TRANSACTION;
+
+    const sanctionsDetail = isSanctionsHit
+      ? ` Sanctioned address detected: ${senderSanctioned ? 'sender' : 'receiver'}.`
+      : '';
+
+    const reason =
+      `Transaction flagged automatically. Risk score: ${riskScore}, Risk level: ${riskLevel}.` +
+      ` ${sanctionsDetail ? sanctionsDetail.trim() + ' ' : ''}Amount: $${transaction.amountUSD} USD on ${transaction.network}.`;
+    try {
+      autoCreateCase(transaction, reason, category);
+    } catch (err) {
+      logger.error('Failed to auto-create case for high-risk transaction', { error: err });
+    }
+  }
 
   return transaction;
 }
