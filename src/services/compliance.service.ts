@@ -11,9 +11,14 @@ import {
   ReportType,
   ComplianceStatus,
   RiskLevel,
+  UserRole,
+  NotificationType,
+  NotificationPriority,
 } from '../types';
 import { logger } from '../utils/logger';
 import { prisma } from '../lib/prisma';
+import { broadcastToRoles } from './notification.service';
+import { evaluateTransaction } from './alert.service';
 
 // ---------------------------------------------------------------------------
 // Regulatory thresholds (USD)
@@ -93,6 +98,11 @@ export async function checkCompliance(
     travelRuleRequired,
   });
 
+  // Evaluate transaction against alert rules
+  evaluateTransaction(transaction).catch((err) =>
+    logger.error('Failed to evaluate transaction alert rules', { error: err })
+  );
+
   return {
     sarRequired,
     ctrRequired,
@@ -132,6 +142,17 @@ export async function generateSAR(transaction: Transaction): Promise<ComplianceR
   });
 
   logger.info('SAR generated', { reportId: record.id, transactionId: transaction.id });
+
+  // Notify compliance officers and admins about the new SAR
+  broadcastToRoles([UserRole.COMPLIANCE_OFFICER, UserRole.ADMIN], {
+    type: NotificationType.COMPLIANCE_ALERT,
+    priority: NotificationPriority.HIGH,
+    title: 'SAR Generated',
+    message: `A Suspicious Activity Report has been filed for transaction ${transaction.txHash || transaction.id}. Amount: $${transaction.amountUSD.toLocaleString()} USD.`,
+    referenceId: record.id,
+    referenceType: 'COMPLIANCE_REPORT',
+  }).catch((err) => logger.error('Failed to broadcast SAR notification', { error: err }));
+
   return mapPrismaReport(record);
 }
 

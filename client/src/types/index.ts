@@ -430,3 +430,99 @@ export interface TaxAuthorityDashboard {
   byQuarter: { period: string; taxUSD: number; taxNGN: number }[];
   recentHighValueAssessments: TaxAssessment[];
 }
+
+// ---------------------------------------------------------------------------
+// Notification & Alert Types (client-side mirror)
+// ---------------------------------------------------------------------------
+
+export enum NotificationType {
+  CASE_CREATED = 'CASE_CREATED',
+  CASE_ASSIGNED = 'CASE_ASSIGNED',
+  CASE_ESCALATED = 'CASE_ESCALATED',
+  CASE_STATUS_CHANGED = 'CASE_STATUS_CHANGED',
+  CASE_NOTE_ADDED = 'CASE_NOTE_ADDED',
+  COMPLIANCE_ALERT = 'COMPLIANCE_ALERT',
+  HIGH_RISK_TRANSACTION = 'HIGH_RISK_TRANSACTION',
+  SANCTIONS_HIT = 'SANCTIONS_HIT',
+  THRESHOLD_EXCEEDED = 'THRESHOLD_EXCEEDED',
+  SYSTEM_ALERT = 'SYSTEM_ALERT',
+}
+
+export enum NotificationPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
+
+export enum AlertRuleCondition {
+  TRANSACTION_AMOUNT_EXCEEDS = 'TRANSACTION_AMOUNT_EXCEEDS',
+  RISK_LEVEL_IS = 'RISK_LEVEL_IS',
+  COMPLIANCE_STATUS_IS = 'COMPLIANCE_STATUS_IS',
+  SANCTIONS_HIT = 'SANCTIONS_HIT',
+  CASE_ESCALATED = 'CASE_ESCALATED',
+  CASE_UNASSIGNED_DURATION = 'CASE_UNASSIGNED_DURATION',
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  priority: NotificationPriority;
+  title: string;
+  message: string;
+  referenceId?: string;
+  referenceType?: 'CASE' | 'TRANSACTION' | 'COMPLIANCE_REPORT' | 'WALLET';
+  isRead: boolean;
+  readAt?: string;
+  createdAt: string;
+}
+
+export interface NotificationPreferences {
+  userId: string;
+  enabledTypes: NotificationType[];
+  emailNotifications: boolean;
+  highPriorityOnly: boolean;
+  updatedAt: string;
+}
+
+export interface AlertRule {
+  id: string;
+  name: string;
+  description: string;
+  condition: AlertRuleCondition;
+  threshold?: number;
+  value?: string;
+  notificationType: NotificationType;
+  priority: NotificationPriority;
+  targetRoles: UserRole[];
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationStats {
+  total: number;
+  unread: number;
+  byType: Record<string, number>;
+  byPriority: Record<string, number>;
+}
+
+export interface CreateAlertRuleRequest {
+  name: string;
+  description: string;
+  condition: AlertRuleCondition;
+  threshold?: number;
+  value?: string;
+  notificationType: NotificationType;
+  priority: NotificationPriority;
+  targetRoles: UserRole[];
+  isActive?: boolean;
+}
+
+export interface UpdateNotificationPreferencesRequest {
+  enabledTypes?: NotificationType[];
+  emailNotifications?: boolean;
+  highPriorityOnly?: boolean;
+}

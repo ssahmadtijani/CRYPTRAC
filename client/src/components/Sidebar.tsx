@@ -8,16 +8,19 @@ const navItems = [
   { to: '/wallets', label: 'Wallets', icon: '🔑' },
   { to: '/compliance', label: 'Compliance', icon: '📋' },
   { to: '/cases', label: 'Cases', icon: '🗂️' },
+  { to: '/notifications', label: 'Notifications', icon: '🔔' },
   { to: '/exchanges', label: 'Exchanges', icon: '📊' },
   { to: '/tax', label: 'Tax Summary', icon: '💰' },
 ];
 
 const authorityRoles = [UserRole.ADMIN, UserRole.COMPLIANCE_OFFICER, UserRole.AUDITOR];
+const alertRulesRoles = [UserRole.ADMIN, UserRole.COMPLIANCE_OFFICER];
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
 
   const isAuthority = user && authorityRoles.includes(user.role as UserRole);
+  const canManageAlerts = user && alertRulesRoles.includes(user.role as UserRole);
 
   return (
     <aside className="sidebar">
@@ -40,6 +43,16 @@ export default function Sidebar() {
             <span>{item.label}</span>
           </NavLink>
         ))}
+
+        {canManageAlerts && (
+          <NavLink
+            to="/alert-rules"
+            className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+          >
+            <span className="sidebar-icon">⚡</span>
+            <span>Alert Rules</span>
+          </NavLink>
+        )}
 
         {isAuthority && (
           <>

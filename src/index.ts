@@ -17,6 +17,8 @@ import { sanctionsRoutes } from './routes/sanctions.routes';
 import { riskRoutes } from './routes/risk.routes';
 import { xmlImportRoutes } from './routes/xml-import.routes';
 import { caseRoutes } from './routes/case.routes';
+import { notificationRoutes } from './routes/notification.routes';
+import { alertRoutes } from './routes/alert.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 
@@ -58,6 +60,8 @@ app.use('/api/v1/sanctions', sanctionsRoutes);
 app.use('/api/v1/risk', riskRoutes);
 app.use('/api/v1/exchange-reports', xmlImportRoutes);
 app.use('/api/v1/cases', caseRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/alerts', alertRoutes);
 
 // Error handling
 app.use(errorHandler);

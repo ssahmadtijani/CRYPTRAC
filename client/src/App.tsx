@@ -14,6 +14,8 @@ import Tax from './pages/Tax';
 import Authority from './pages/Authority';
 import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail';
+import Notifications from './pages/Notifications';
+import AlertRules from './pages/AlertRules';
 import './App.css';
 
 export default function App() {
@@ -40,6 +42,8 @@ export default function App() {
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/cases" element={<Cases />} />
             <Route path="/cases/:id" element={<CaseDetail />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/alert-rules" element={<AlertRules />} />
             <Route path="/exchanges" element={<Exchanges />} />
             <Route path="/tax" element={<Tax />} />
             <Route path="/authority" element={<Authority />} />

@@ -11,11 +11,15 @@ import {
   ComplianceStatus,
   ApiResponse,
   CaseCategory,
+  UserRole,
+  NotificationType,
+  NotificationPriority,
 } from '../types';
 import { CreateTransactionInput } from '../validators/schemas';
 import { logger } from '../utils/logger';
 import { prisma } from '../lib/prisma';
 import { autoCreateCase } from './case.service';
+import { broadcastToRoles } from './notification.service';
 
 // ---------------------------------------------------------------------------
 // Risk scoring thresholds (USD)
@@ -155,6 +159,24 @@ export async function createTransaction(
     } catch (err) {
       logger.error('Failed to auto-create case for high-risk transaction', { error: err });
     }
+
+    // Send HIGH_RISK_TRANSACTION notification
+    const notifType = isSanctionsHit
+      ? NotificationType.SANCTIONS_HIT
+      : NotificationType.HIGH_RISK_TRANSACTION;
+
+    broadcastToRoles([UserRole.COMPLIANCE_OFFICER, UserRole.ADMIN], {
+      type: notifType,
+      priority: riskLevel === RiskLevel.CRITICAL
+        ? NotificationPriority.CRITICAL
+        : NotificationPriority.HIGH,
+      title: isSanctionsHit ? 'Sanctions Hit Detected' : 'High Risk Transaction Detected',
+      message: reason,
+      referenceId: transaction.id,
+      referenceType: 'TRANSACTION',
+    }).catch((err) =>
+      logger.error('Failed to broadcast high-risk transaction notification', { error: err })
+    );
   }
 
   return transaction;

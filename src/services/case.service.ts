@@ -15,9 +15,14 @@ import {
   CaseCategory,
   RiskLevel,
   Transaction,
+  NotificationType,
+  NotificationPriority,
+  UserRole,
 } from '../types';
 import { CreateCaseInput } from '../validators/schemas';
 import { logger } from '../utils/logger';
+import { broadcastToRoles, createNotification } from './notification.service';
+import { evaluateCase } from './alert.service';
 
 // ---------------------------------------------------------------------------
 // In-memory stores
@@ -131,6 +136,25 @@ export function createCase(data: CreateCaseInput, createdById: string): Case {
     priority: newCase.priority,
   });
 
+  // Broadcast CASE_CREATED notification to compliance officers and admins
+  broadcastToRoles([UserRole.COMPLIANCE_OFFICER, UserRole.ADMIN], {
+    type: NotificationType.CASE_CREATED,
+    priority: newCase.priority === CasePriority.CRITICAL
+      ? NotificationPriority.CRITICAL
+      : newCase.priority === CasePriority.HIGH
+        ? NotificationPriority.HIGH
+        : NotificationPriority.MEDIUM,
+    title: `New Case Created: ${newCase.caseNumber}`,
+    message: `A new ${newCase.category.replace(/_/g, ' ')} case has been opened. Priority: ${newCase.priority}.`,
+    referenceId: newCase.id,
+    referenceType: 'CASE',
+  }).catch((err) => logger.error('Failed to broadcast CASE_CREATED notification', { error: err }));
+
+  // Evaluate unassigned case alert rules
+  evaluateCase(newCase, 'CREATED').catch((err) =>
+    logger.error('Failed to evaluate case alert rules', { error: err })
+  );
+
   return newCase;
 }
 
@@ -239,6 +263,51 @@ export function updateCaseStatus(
 
   logger.info('Case status updated', { caseId, previousStatus, newStatus });
 
+  // Notify assigned user + admins of status change
+  const notifPriority = newStatus === CaseStatus.ESCALATED
+    ? NotificationPriority.CRITICAL
+    : NotificationPriority.MEDIUM;
+
+  const notifType = newStatus === CaseStatus.ESCALATED
+    ? NotificationType.CASE_ESCALATED
+    : NotificationType.CASE_STATUS_CHANGED;
+
+  const notifTitle = newStatus === CaseStatus.ESCALATED
+    ? `Case Escalated: ${updated.caseNumber}`
+    : `Case Status Updated: ${updated.caseNumber}`;
+
+  const notifMessage = `Case ${updated.caseNumber} status changed from ${previousStatus} to ${newStatus}.${resolution ? ` Resolution: ${resolution.slice(0, 100)}` : ''}`;
+
+  // Notify assigned user if present
+  if (updated.assigneeId) {
+    createNotification({
+      userId: updated.assigneeId,
+      type: notifType,
+      priority: notifPriority,
+      title: notifTitle,
+      message: notifMessage,
+      referenceId: caseId,
+      referenceType: 'CASE',
+    });
+  }
+
+  // Broadcast to admins
+  broadcastToRoles([UserRole.ADMIN], {
+    type: notifType,
+    priority: notifPriority,
+    title: notifTitle,
+    message: notifMessage,
+    referenceId: caseId,
+    referenceType: 'CASE',
+  }).catch((err) => logger.error('Failed to broadcast status change notification', { error: err }));
+
+  // Evaluate escalation alert rules
+  if (newStatus === CaseStatus.ESCALATED) {
+    evaluateCase(updated, 'ESCALATED').catch((err) =>
+      logger.error('Failed to evaluate case escalation alert rules', { error: err })
+    );
+  }
+
   return updated;
 }
 
@@ -266,6 +335,21 @@ export function assignCase(caseId: string, assigneeId: string, performedById: st
   });
 
   logger.info('Case assigned', { caseId, assigneeId });
+
+  // Notify the assigned user
+  createNotification({
+    userId: assigneeId,
+    type: NotificationType.CASE_ASSIGNED,
+    priority: updated.priority === CasePriority.CRITICAL
+      ? NotificationPriority.CRITICAL
+      : updated.priority === CasePriority.HIGH
+        ? NotificationPriority.HIGH
+        : NotificationPriority.MEDIUM,
+    title: `Case Assigned to You: ${updated.caseNumber}`,
+    message: `You have been assigned case ${updated.caseNumber} (${updated.category.replace(/_/g, ' ')}). Priority: ${updated.priority}.`,
+    referenceId: caseId,
+    referenceType: 'CASE',
+  });
 
   return updated;
 }
@@ -304,6 +388,20 @@ export function addCaseNote(
     newValue: note.id,
     metadata: { noteType },
   });
+
+  // Notify case assignee if different from note author
+  const caseRecord = cases.get(caseId)!;
+  if (caseRecord.assigneeId && caseRecord.assigneeId !== authorId) {
+    createNotification({
+      userId: caseRecord.assigneeId,
+      type: NotificationType.CASE_NOTE_ADDED,
+      priority: NotificationPriority.LOW,
+      title: `New Note on Case: ${caseRecord.caseNumber}`,
+      message: `A new ${noteType} note was added to case ${caseRecord.caseNumber}.`,
+      referenceId: caseId,
+      referenceType: 'CASE',
+    });
+  }
 
   return note;
 }
