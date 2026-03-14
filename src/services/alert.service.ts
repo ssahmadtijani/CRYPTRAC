@@ -393,4 +393,4 @@ function buildCaseMessage(rule: AlertRule, c: Case, event: string): string {
 }
 
 // Exported for testing
-export { alertRules as _alertRulesStore, defaultsSeeded as _defaultsSeeded };
+export { alertRules as _alertRulesStore };

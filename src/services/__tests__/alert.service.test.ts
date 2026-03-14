@@ -13,8 +13,7 @@ import {
   evaluateCase,
   getDefaultRules,
   _alertRulesStore,
-} from '../alert.service';
-import { _notificationsStore, _preferencesStore } from '../notification.service';
+} from '../alert.service';import { _notificationsStore, _preferencesStore } from '../notification.service';
 import {
   AlertRuleCondition,
   NotificationType,

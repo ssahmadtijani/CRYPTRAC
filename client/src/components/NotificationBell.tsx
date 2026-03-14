@@ -72,9 +72,7 @@ export default function NotificationBell() {
     try {
       const res = await notificationsApi.list({ pageSize: 10 });
       setNotifications(res.data.data ?? []);
-      setUnreadCount(
-        (res.data.data ?? []).filter((n) => !n.isRead).length
-      );
+      // Don't override unreadCount here — it's driven by the stats polling
     } catch {
       // Silently fail
     } finally {

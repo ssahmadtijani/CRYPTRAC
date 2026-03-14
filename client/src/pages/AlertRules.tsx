@@ -267,8 +267,9 @@ export default function AlertRulesPage() {
                         marginTop: '2px',
                       }}
                     >
-                      {rule.description.slice(0, 80)}
-                      {rule.description.length > 80 ? '…' : ''}
+                      {rule.description.length > 80
+                        ? rule.description.slice(0, 80).replace(/\s\S*$/, '') + '…'
+                        : rule.description}
                     </div>
                   </td>
                   <td>

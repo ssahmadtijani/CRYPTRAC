@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { notificationsApi } from '../api/notifications';
 import {
@@ -93,7 +93,7 @@ export default function NotificationsPage() {
   // Data fetching
   // -------------------------------------------------------------------------
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -120,7 +120,7 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, typeFilter, priorityFilter, readFilter]);
 
   const fetchPrefs = async () => {
     try {
@@ -133,8 +133,7 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     void fetchData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, typeFilter, priorityFilter, readFilter]);
+  }, [fetchData]);
 
   useEffect(() => {
     void fetchPrefs();

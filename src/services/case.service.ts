@@ -276,7 +276,7 @@ export function updateCaseStatus(
     ? `Case Escalated: ${updated.caseNumber}`
     : `Case Status Updated: ${updated.caseNumber}`;
 
-  const notifMessage = `Case ${updated.caseNumber} status changed from ${previousStatus} to ${newStatus}.${resolution ? ` Resolution: ${resolution.slice(0, 100)}` : ''}`;
+  const notifMessage = `Case ${updated.caseNumber} status changed from ${previousStatus} to ${newStatus}.${resolution ? ` Resolution: ${resolution.slice(0, 100)}${resolution.length > 100 ? '…' : ''}` : ''}`;
 
   // Notify assigned user if present
   if (updated.assigneeId) {
