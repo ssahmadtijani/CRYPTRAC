@@ -415,6 +415,22 @@ a:hover {
 .status-rejected     { background: rgba(239, 68, 68, 0.15);   color: var(--danger);  }
 .status-under-review { background: rgba(245, 158, 11, 0.15);  color: var(--warning); }
 
+/* Case status badges */
+.badge-case-open        { background: rgba(59, 130, 246, 0.15);  color: #3b82f6; }
+.badge-case-inprogress  { background: rgba(245, 158, 11, 0.15);  color: #f59e0b; }
+.badge-case-escalated   { background: rgba(239, 68, 68, 0.15);   color: #ef4444; }
+.badge-case-resolved    { background: rgba(16, 185, 129, 0.15);  color: #10b981; }
+.badge-case-closed      { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+
+/* Case priority badges */
+.badge-priority-low      { background: rgba(16, 185, 129, 0.15);  color: #10b981; }
+.badge-priority-medium   { background: rgba(245, 158, 11, 0.15);  color: #f59e0b; }
+.badge-priority-high     { background: rgba(249, 115, 22, 0.15);  color: #f97316; }
+.badge-priority-critical { background: rgba(239, 68, 68, 0.15);   color: #ef4444; }
+
+/* Generic accent badge */
+.accent-default { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+
 /* ── Buttons ─────────────────────────────────────────────────── */
 .btn {
   display: inline-flex;
