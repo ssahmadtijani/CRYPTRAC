@@ -985,3 +985,153 @@ export interface FilingDashboardMetrics {
   nextDeadline?: FilingCalendarEntry;
   overdueFilings: FilingCalendarEntry[];
 }
+
+// ---------------------------------------------------------------------------
+// Phase 3D — User Administration Types
+// ---------------------------------------------------------------------------
+
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  LOCKED = 'LOCKED',
+  PENDING = 'PENDING',
+  DEACTIVATED = 'DEACTIVATED',
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  status: UserStatus;
+  department?: string;
+  phone?: string;
+  lastLogin?: string;
+  failedLoginCount: number;
+  lockedUntil?: string;
+  suspendedAt?: string;
+  suspendedReason?: string;
+  deactivatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserSession {
+  id: string;
+  userId: string;
+  ipAddress: string;
+  userAgent: string;
+  createdAt: string;
+  lastActiveAt: string;
+  expiresAt: string;
+}
+
+export interface UserActivity {
+  id: string;
+  userId: string;
+  action: string;
+  description: string;
+  ipAddress?: string;
+  metadata?: Record<string, unknown>;
+  timestamp: string;
+}
+
+export interface UserAdminStats {
+  total: number;
+  byRole: Record<string, number>;
+  byStatus: Record<string, number>;
+  activeToday: number;
+  newThisMonth: number;
+  lockedAccounts: number;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3D — Permission Types
+// ---------------------------------------------------------------------------
+
+export enum Permission {
+  VIEW_DASHBOARD = 'VIEW_DASHBOARD',
+  VIEW_TRANSACTIONS = 'VIEW_TRANSACTIONS',
+  CREATE_TRANSACTION = 'CREATE_TRANSACTION',
+  VIEW_WALLETS = 'VIEW_WALLETS',
+  MANAGE_WALLETS = 'MANAGE_WALLETS',
+  VIEW_COMPLIANCE = 'VIEW_COMPLIANCE',
+  MANAGE_COMPLIANCE = 'MANAGE_COMPLIANCE',
+  VIEW_CASES = 'VIEW_CASES',
+  CREATE_CASES = 'CREATE_CASES',
+  MANAGE_CASES = 'MANAGE_CASES',
+  VIEW_RISK = 'VIEW_RISK',
+  MANAGE_RISK = 'MANAGE_RISK',
+  VIEW_ANALYTICS = 'VIEW_ANALYTICS',
+  EXPORT_DATA = 'EXPORT_DATA',
+  VIEW_AUDIT_LOGS = 'VIEW_AUDIT_LOGS',
+  VIEW_ALERTS = 'VIEW_ALERTS',
+  MANAGE_ALERT_RULES = 'MANAGE_ALERT_RULES',
+  VIEW_STR_SAR = 'VIEW_STR_SAR',
+  CREATE_STR_SAR = 'CREATE_STR_SAR',
+  APPROVE_STR_SAR = 'APPROVE_STR_SAR',
+  FILE_STR_SAR = 'FILE_STR_SAR',
+  VIEW_TRAVEL_RULE = 'VIEW_TRAVEL_RULE',
+  MANAGE_TRAVEL_RULE = 'MANAGE_TRAVEL_RULE',
+  VIEW_FILINGS = 'VIEW_FILINGS',
+  MANAGE_FILINGS = 'MANAGE_FILINGS',
+  VIEW_TAX = 'VIEW_TAX',
+  MANAGE_TAX = 'MANAGE_TAX',
+  VIEW_USERS = 'VIEW_USERS',
+  MANAGE_USERS = 'MANAGE_USERS',
+  MANAGE_ROLES = 'MANAGE_ROLES',
+  MANAGE_SYSTEM = 'MANAGE_SYSTEM',
+  VIEW_SYSTEM_HEALTH = 'VIEW_SYSTEM_HEALTH',
+}
+
+export interface UserPermissionOverride {
+  userId: string;
+  granted: Permission[];
+  revoked: Permission[];
+  updatedAt: string;
+  updatedBy: string;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3D — Enhanced Audit Types
+// ---------------------------------------------------------------------------
+
+export type AuditSeverity = 'CRITICAL' | 'WARNING' | 'INFO';
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userEmail: string;
+  userRole: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  description: string;
+  metadata: Record<string, unknown>;
+  severity: AuditSeverity;
+}
+
+export interface AuditDashboardMetrics {
+  totalLogs: number;
+  todayLogs: number;
+  criticalEvents: number;
+  uniqueUsers: number;
+  topActions: { action: string; count: number }[];
+  activityByHour: { hour: number; count: number }[];
+  activityByDay: { date: string; count: number }[];
+}
+
+export interface AuditComplianceReport {
+  id: string;
+  generatedAt: string;
+  generatedBy: string;
+  startDate: string;
+  endDate: string;
+  totalEvents: number;
+  criticalEvents: number;
+  userSummary: { userId: string; email: string; eventCount: number }[];
+  actionSummary: { action: string; count: number }[];
+  securityEvents: AuditLogEntry[];
+}

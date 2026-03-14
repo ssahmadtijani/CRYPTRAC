@@ -534,6 +534,18 @@ export enum AuditAction {
   FILING_CREATED = 'FILING_CREATED',
   FILING_UPDATED = 'FILING_UPDATED',
   FILING_FILED = 'FILING_FILED',
+  USER_CREATED = 'USER_CREATED',
+  USER_UPDATED = 'USER_UPDATED',
+  USER_SUSPENDED = 'USER_SUSPENDED',
+  USER_REACTIVATED = 'USER_REACTIVATED',
+  USER_LOCKED = 'USER_LOCKED',
+  USER_UNLOCKED = 'USER_UNLOCKED',
+  USER_DEACTIVATED = 'USER_DEACTIVATED',
+  USER_PASSWORD_RESET = 'USER_PASSWORD_RESET',
+  USER_ROLE_CHANGED = 'USER_ROLE_CHANGED',
+  PERMISSION_GRANTED = 'PERMISSION_GRANTED',
+  PERMISSION_REVOKED = 'PERMISSION_REVOKED',
+  SESSION_TERMINATED = 'SESSION_TERMINATED',
 }
 
 export interface AuditEntry {
@@ -858,6 +870,9 @@ export enum WSEventType {
   STR_SAR_CREATED = 'STR_SAR_CREATED',
   STR_SAR_FILED = 'STR_SAR_FILED',
   FILING_OVERDUE = 'FILING_OVERDUE',
+  USER_ROLE_CHANGED = 'USER_ROLE_CHANGED',
+  USER_SUSPENDED = 'USER_SUSPENDED',
+  SECURITY_ALERT = 'SECURITY_ALERT',
 }
 
 export interface WSEvent {
@@ -1103,4 +1118,170 @@ export interface FilingDashboardMetrics {
   complianceScore: number;
   nextDeadline?: FilingCalendarEntry;
   overdueFilings: FilingCalendarEntry[];
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3D — User Administration Types
+// ---------------------------------------------------------------------------
+
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  LOCKED = 'LOCKED',
+  PENDING = 'PENDING',
+  DEACTIVATED = 'DEACTIVATED',
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  status: UserStatus;
+  department?: string;
+  phone?: string;
+  lastLogin?: Date;
+  lastFailedLogin?: Date;
+  failedLoginCount: number;
+  lockedUntil?: Date;
+  suspendedAt?: Date;
+  suspendedReason?: string;
+  deactivatedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UserSession {
+  id: string;
+  userId: string;
+  ipAddress: string;
+  userAgent: string;
+  createdAt: Date;
+  lastActiveAt: Date;
+  expiresAt: Date;
+}
+
+export interface UserActivity {
+  id: string;
+  userId: string;
+  action: string;
+  description: string;
+  ipAddress?: string;
+  metadata?: Record<string, unknown>;
+  timestamp: Date;
+}
+
+export interface UserFilter {
+  page?: number;
+  pageSize?: number;
+  role?: UserRole;
+  status?: UserStatus;
+  department?: string;
+  search?: string;
+}
+
+export interface UserAdminStats {
+  total: number;
+  byRole: Record<UserRole, number>;
+  byStatus: Record<UserStatus, number>;
+  activeToday: number;
+  newThisMonth: number;
+  lockedAccounts: number;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3D — Role & Permission Types
+// ---------------------------------------------------------------------------
+
+export enum Permission {
+  VIEW_DASHBOARD = 'VIEW_DASHBOARD',
+  VIEW_TRANSACTIONS = 'VIEW_TRANSACTIONS',
+  CREATE_TRANSACTION = 'CREATE_TRANSACTION',
+  VIEW_WALLETS = 'VIEW_WALLETS',
+  MANAGE_WALLETS = 'MANAGE_WALLETS',
+  VIEW_COMPLIANCE = 'VIEW_COMPLIANCE',
+  MANAGE_COMPLIANCE = 'MANAGE_COMPLIANCE',
+  VIEW_CASES = 'VIEW_CASES',
+  CREATE_CASES = 'CREATE_CASES',
+  MANAGE_CASES = 'MANAGE_CASES',
+  VIEW_RISK = 'VIEW_RISK',
+  MANAGE_RISK = 'MANAGE_RISK',
+  VIEW_ANALYTICS = 'VIEW_ANALYTICS',
+  EXPORT_DATA = 'EXPORT_DATA',
+  VIEW_AUDIT_LOGS = 'VIEW_AUDIT_LOGS',
+  VIEW_ALERTS = 'VIEW_ALERTS',
+  MANAGE_ALERT_RULES = 'MANAGE_ALERT_RULES',
+  VIEW_STR_SAR = 'VIEW_STR_SAR',
+  CREATE_STR_SAR = 'CREATE_STR_SAR',
+  APPROVE_STR_SAR = 'APPROVE_STR_SAR',
+  FILE_STR_SAR = 'FILE_STR_SAR',
+  VIEW_TRAVEL_RULE = 'VIEW_TRAVEL_RULE',
+  MANAGE_TRAVEL_RULE = 'MANAGE_TRAVEL_RULE',
+  VIEW_FILINGS = 'VIEW_FILINGS',
+  MANAGE_FILINGS = 'MANAGE_FILINGS',
+  VIEW_TAX = 'VIEW_TAX',
+  MANAGE_TAX = 'MANAGE_TAX',
+  VIEW_USERS = 'VIEW_USERS',
+  MANAGE_USERS = 'MANAGE_USERS',
+  MANAGE_ROLES = 'MANAGE_ROLES',
+  MANAGE_SYSTEM = 'MANAGE_SYSTEM',
+  VIEW_SYSTEM_HEALTH = 'VIEW_SYSTEM_HEALTH',
+}
+
+export type RolePermissionMatrix = Record<UserRole, Permission[]>;
+
+export interface UserPermissionOverride {
+  userId: string;
+  granted: Permission[];
+  revoked: Permission[];
+  updatedAt: Date;
+  updatedBy: string;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3D — Enhanced Audit Types
+// ---------------------------------------------------------------------------
+
+export type AuditSeverity = 'CRITICAL' | 'WARNING' | 'INFO';
+
+export interface AuditLogFilter {
+  userId?: string;
+  action?: AuditAction;
+  entityType?: string;
+  severity?: AuditSeverity;
+  startDate?: Date;
+  endDate?: Date;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: 'timestamp' | 'action' | 'severity';
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface AuditLogEntry extends AuditEntry {
+  severity: AuditSeverity;
+}
+
+export interface AuditDashboardMetrics {
+  totalLogs: number;
+  todayLogs: number;
+  criticalEvents: number;
+  uniqueUsers: number;
+  topActions: { action: string; count: number }[];
+  activityByHour: { hour: number; count: number }[];
+  activityByDay: { date: string; count: number }[];
+}
+
+export interface AuditComplianceReport {
+  id: string;
+  generatedAt: Date;
+  generatedBy: string;
+  startDate: Date;
+  endDate: Date;
+  totalEvents: number;
+  criticalEvents: number;
+  userSummary: { userId: string; email: string; eventCount: number }[];
+  actionSummary: { action: string; count: number }[];
+  securityEvents: AuditLogEntry[];
 }

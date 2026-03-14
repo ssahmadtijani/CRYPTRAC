@@ -27,6 +27,9 @@ import { websocketRoutes } from './routes/websocket.routes';
 import { travelRuleRoutes } from './routes/travel-rule.routes';
 import { strSarRoutes } from './routes/str-sar.routes';
 import { regulatoryFilingRoutes } from './routes/regulatory-filing.routes';
+import { userAdminRoutes } from './routes/user-admin.routes';
+import { rolePermissionRoutes } from './routes/role-permission.routes';
+import { auditEnhancedRoutes } from './routes/audit-enhanced.routes';
 import { initializeWebSocket } from './services/websocket.service';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
@@ -78,6 +81,9 @@ app.use('/api/v1/ws', websocketRoutes);
 app.use('/api/v1/travel-rule', travelRuleRoutes);
 app.use('/api/v1/str-sar', strSarRoutes);
 app.use('/api/v1/filings', regulatoryFilingRoutes);
+app.use('/api/v1/admin/users', userAdminRoutes);
+app.use('/api/v1/admin/roles', rolePermissionRoutes);
+app.use('/api/v1/admin/audit', auditEnhancedRoutes);
 
 // Error handling
 app.use(errorHandler);
