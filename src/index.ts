@@ -21,6 +21,7 @@ import { notificationRoutes } from './routes/notification.routes';
 import { alertRoutes } from './routes/alert.routes';
 import { auditRoutes } from './routes/audit.routes';
 import { exportRoutes } from './routes/export.routes';
+import { analyticsRoutes } from './routes/analytics.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 
@@ -66,6 +67,7 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/alerts', alertRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/export', exportRoutes);
+app.use('/api/v1/analytics', analyticsRoutes);
 
 // Error handling
 app.use(errorHandler);
