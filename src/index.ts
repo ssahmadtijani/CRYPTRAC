@@ -7,6 +7,10 @@ import { transactionRoutes } from './routes/transaction.routes';
 import { complianceRoutes } from './routes/compliance.routes';
 import { walletRoutes } from './routes/wallet.routes';
 import { authRoutes } from './routes/auth.routes';
+import { exchangeRoutes } from './routes/exchange.routes';
+import { taxRoutes } from './routes/tax.routes';
+import { taxAuthorityRoutes } from './routes/tax-authority.routes';
+import { demoRoutes } from './routes/demo.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 
@@ -39,6 +43,10 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/transactions', transactionRoutes);
 app.use('/api/v1/compliance', complianceRoutes);
 app.use('/api/v1/wallets', walletRoutes);
+app.use('/api/v1/exchanges', exchangeRoutes);
+app.use('/api/v1/tax', taxRoutes);
+app.use('/api/v1/authority', taxAuthorityRoutes);
+app.use('/api/v1/demo', demoRoutes);
 
 // Error handling
 app.use(errorHandler);

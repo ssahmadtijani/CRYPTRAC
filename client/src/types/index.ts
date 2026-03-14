@@ -163,3 +163,157 @@ export interface RegisterWalletRequest {
   network: string;
   label?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Exchange & Tax Types (mirror of backend)
+// ---------------------------------------------------------------------------
+
+export type ExchangeTransactionType =
+  | 'BUY'
+  | 'SELL'
+  | 'DEPOSIT'
+  | 'WITHDRAWAL'
+  | 'SWAP'
+  | 'STAKING_REWARD'
+  | 'MINING_REWARD'
+  | 'AIRDROP';
+
+export interface ExchangeTransaction {
+  exchangeId: string;
+  exchangeName: string;
+  externalTxId: string;
+  type: ExchangeTransactionType;
+  asset: string;
+  amount: number;
+  pricePerUnit: number;
+  totalValueUSD: number;
+  fee: number;
+  feeUSD: number;
+  counterAsset?: string;
+  counterAmount?: number;
+  walletAddress?: string;
+  timestamp: string;
+}
+
+export interface ExchangeBalance {
+  asset: string;
+  amount: number;
+  valueUSD: number;
+}
+
+export interface ExchangeConnection {
+  userId: string;
+  exchangeName: string;
+  connectedAt: string;
+  lastSyncedAt?: string;
+  status: 'ACTIVE' | 'SYNCING' | 'ERROR';
+  transactionCount: number;
+}
+
+export enum TaxEventType {
+  CAPITAL_GAIN_SHORT = 'CAPITAL_GAIN_SHORT',
+  CAPITAL_GAIN_LONG = 'CAPITAL_GAIN_LONG',
+  INCOME = 'INCOME',
+  MINING_INCOME = 'MINING_INCOME',
+  STAKING_REWARD = 'STAKING_REWARD',
+  AIRDROP_INCOME = 'AIRDROP_INCOME',
+}
+
+export interface TaxableEvent {
+  id: string;
+  userId: string;
+  type: TaxEventType;
+  asset: string;
+  amount: number;
+  proceedsUSD: number;
+  costBasisUSD: number;
+  gainLossUSD: number;
+  holdingPeriodDays: number;
+  isLongTerm: boolean;
+  exchange: string;
+  sourceTransaction: string;
+  timestamp: string;
+  taxRate: number;
+  taxAmountUSD: number;
+  taxAmountNGN: number;
+  isFlagged: boolean;
+}
+
+export type AssessmentPeriod = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'ANNUAL';
+export type AssessmentStatus = 'DRAFT' | 'CALCULATED' | 'REVIEWED' | 'FILED' | 'PAID';
+
+export interface ExchangeTaxBreakdown {
+  exchangeName: string;
+  transactionCount: number;
+  totalVolumeUSD: number;
+  totalGainLossUSD: number;
+  totalTaxUSD: number;
+  totalTaxNGN: number;
+}
+
+export interface WalletTaxBreakdown {
+  walletAddress: string;
+  network: string;
+  transactionCount: number;
+  totalVolumeUSD: number;
+  totalGainLossUSD: number;
+  totalTaxUSD: number;
+  totalTaxNGN: number;
+}
+
+export interface TaxAssessment {
+  id: string;
+  userId: string;
+  taxYear: number;
+  period: AssessmentPeriod;
+  totalTransactions: number;
+  totalTaxableEvents: number;
+  totalProceedsUSD: number;
+  totalCostBasisUSD: number;
+  netCapitalGainUSD: number;
+  shortTermGainUSD: number;
+  longTermGainUSD: number;
+  stakingIncomeUSD: number;
+  miningIncomeUSD: number;
+  airdropIncomeUSD: number;
+  totalIncomeUSD: number;
+  capitalGainsTaxUSD: number;
+  incomeTaxUSD: number;
+  totalTaxLiabilityUSD: number;
+  totalTaxLiabilityNGN: number;
+  exchangeBreakdown: ExchangeTaxBreakdown[];
+  walletBreakdown: WalletTaxBreakdown[];
+  status: AssessmentStatus;
+  generatedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  filedAt?: string;
+}
+
+export interface TaxpayerSummary {
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  totalTransactions: number;
+  totalVolumeUSD: number;
+  totalTaxLiabilityUSD: number;
+  totalTaxLiabilityNGN: number;
+  exchanges: string[];
+  latestAssessmentStatus?: AssessmentStatus;
+  isFlagged: boolean;
+  lastActivity?: string;
+}
+
+export interface TaxAuthorityDashboard {
+  totalTaxpayers: number;
+  totalTaxLiabilityNGN: number;
+  totalTaxLiabilityUSD: number;
+  totalTransactionsProcessed: number;
+  flaggedAssessments: number;
+  taxCollectedNGN: number;
+  taxOutstandingNGN: number;
+  byExchange: ExchangeTaxBreakdown[];
+  byQuarter: { period: string; taxUSD: number; taxNGN: number }[];
+  recentHighValueAssessments: TaxAssessment[];
+}

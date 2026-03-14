@@ -1,15 +1,22 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { UserRole } from '../types';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '⬛' },
   { to: '/transactions', label: 'Transactions', icon: '↔' },
   { to: '/wallets', label: 'Wallets', icon: '🔑' },
   { to: '/compliance', label: 'Compliance', icon: '📋' },
+  { to: '/exchanges', label: 'Exchanges', icon: '📊' },
+  { to: '/tax', label: 'Tax Summary', icon: '💰' },
 ];
+
+const authorityRoles = [UserRole.ADMIN, UserRole.COMPLIANCE_OFFICER, UserRole.AUDITOR];
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
+
+  const isAuthority = user && authorityRoles.includes(user.role as UserRole);
 
   return (
     <aside className="sidebar">
@@ -32,6 +39,31 @@ export default function Sidebar() {
             <span>{item.label}</span>
           </NavLink>
         ))}
+
+        {isAuthority && (
+          <>
+            <div
+              style={{
+                padding: '0.75rem 1rem 0.25rem',
+                fontSize: '0.7rem',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+                borderTop: '1px solid var(--border)',
+                marginTop: '0.5rem',
+              }}
+            >
+              Authority Portal
+            </div>
+            <NavLink
+              to="/authority"
+              className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+            >
+              <span className="sidebar-icon">🏛️</span>
+              <span>Authority Dashboard</span>
+            </NavLink>
+          </>
+        )}
       </nav>
 
       <div className="sidebar-footer">

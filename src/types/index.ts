@@ -222,3 +222,175 @@ export interface PaginationParams {
   page: number;
   limit: number;
 }
+
+// ---------------------------------------------------------------------------
+// Exchange Connector Types
+// ---------------------------------------------------------------------------
+
+export type ExchangeTransactionType =
+  | 'BUY'
+  | 'SELL'
+  | 'DEPOSIT'
+  | 'WITHDRAWAL'
+  | 'SWAP'
+  | 'STAKING_REWARD'
+  | 'MINING_REWARD'
+  | 'AIRDROP';
+
+export interface ExchangeTransaction {
+  exchangeId: string;
+  exchangeName: string;
+  externalTxId: string;
+  type: ExchangeTransactionType;
+  asset: string;
+  amount: number;
+  pricePerUnit: number;
+  totalValueUSD: number;
+  fee: number;
+  feeUSD: number;
+  counterAsset?: string;
+  counterAmount?: number;
+  walletAddress?: string;
+  timestamp: Date;
+}
+
+export interface ExchangeBalance {
+  asset: string;
+  amount: number;
+  valueUSD: number;
+}
+
+export interface ExchangeConnection {
+  userId: string;
+  exchangeName: string;
+  connectedAt: Date;
+  lastSyncedAt?: Date;
+  status: 'ACTIVE' | 'SYNCING' | 'ERROR';
+  transactionCount: number;
+}
+
+// ---------------------------------------------------------------------------
+// Tax Engine Types
+// ---------------------------------------------------------------------------
+
+export interface CostBasisLot {
+  asset: string;
+  amount: number;
+  costPerUnit: number;
+  totalCost: number;
+  acquiredAt: Date;
+  exchange: string;
+}
+
+export interface TaxableEvent {
+  id: string;
+  userId: string;
+  type: TaxEventType;
+  asset: string;
+  amount: number;
+  proceedsUSD: number;
+  costBasisUSD: number;
+  gainLossUSD: number;
+  holdingPeriodDays: number;
+  isLongTerm: boolean;
+  exchange: string;
+  sourceTransaction: string;
+  timestamp: Date;
+  taxRate: number;
+  taxAmountUSD: number;
+  taxAmountNGN: number;
+  isFlagged: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Tax Assessment Types
+// ---------------------------------------------------------------------------
+
+export interface ExchangeTaxBreakdown {
+  exchangeName: string;
+  transactionCount: number;
+  totalVolumeUSD: number;
+  totalGainLossUSD: number;
+  totalTaxUSD: number;
+  totalTaxNGN: number;
+}
+
+export interface WalletTaxBreakdown {
+  walletAddress: string;
+  network: string;
+  transactionCount: number;
+  totalVolumeUSD: number;
+  totalGainLossUSD: number;
+  totalTaxUSD: number;
+  totalTaxNGN: number;
+}
+
+export type AssessmentPeriod = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'ANNUAL';
+export type AssessmentStatus = 'DRAFT' | 'CALCULATED' | 'REVIEWED' | 'FILED' | 'PAID';
+
+export interface TaxAssessment {
+  id: string;
+  userId: string;
+  taxYear: number;
+  period: AssessmentPeriod;
+
+  totalTransactions: number;
+  totalTaxableEvents: number;
+
+  totalProceedsUSD: number;
+  totalCostBasisUSD: number;
+  netCapitalGainUSD: number;
+  shortTermGainUSD: number;
+  longTermGainUSD: number;
+
+  stakingIncomeUSD: number;
+  miningIncomeUSD: number;
+  airdropIncomeUSD: number;
+  totalIncomeUSD: number;
+
+  capitalGainsTaxUSD: number;
+  incomeTaxUSD: number;
+  totalTaxLiabilityUSD: number;
+  totalTaxLiabilityNGN: number;
+
+  exchangeBreakdown: ExchangeTaxBreakdown[];
+  walletBreakdown: WalletTaxBreakdown[];
+
+  status: AssessmentStatus;
+  generatedAt: Date;
+  reviewedBy?: string;
+  reviewedAt?: Date;
+  filedAt?: Date;
+}
+
+// ---------------------------------------------------------------------------
+// Tax Authority Portal Types
+// ---------------------------------------------------------------------------
+
+export interface TaxpayerSummary {
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  totalTransactions: number;
+  totalVolumeUSD: number;
+  totalTaxLiabilityUSD: number;
+  totalTaxLiabilityNGN: number;
+  exchanges: string[];
+  latestAssessmentStatus?: AssessmentStatus;
+  isFlagged: boolean;
+  lastActivity?: Date;
+}
+
+export interface TaxAuthorityDashboard {
+  totalTaxpayers: number;
+  totalTaxLiabilityNGN: number;
+  totalTaxLiabilityUSD: number;
+  totalTransactionsProcessed: number;
+  flaggedAssessments: number;
+  taxCollectedNGN: number;
+  taxOutstandingNGN: number;
+  byExchange: ExchangeTaxBreakdown[];
+  byQuarter: { period: string; taxUSD: number; taxNGN: number }[];
+  recentHighValueAssessments: TaxAssessment[];
+}
