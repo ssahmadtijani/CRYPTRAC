@@ -146,6 +146,8 @@ model User {
   assignedCases        Case[]             @relation("AssignedCases")
   createdCases         Case[]             @relation("CreatedCases")
   resolvedCases        Case[]             @relation("ResolvedCases")
+  notifications        Notification[]
+  notificationPreference NotificationPreference?
 
   @@index([email])
 }
@@ -504,4 +506,90 @@ model CaseTimeline {
 
   @@index([caseId])
   @@index([timestamp])
+}
+
+// ---------------------------------------------------------------------------
+// Notification & Alert Models
+// ---------------------------------------------------------------------------
+
+enum NotificationType {
+  CASE_CREATED
+  CASE_ASSIGNED
+  CASE_ESCALATED
+  CASE_STATUS_CHANGED
+  CASE_NOTE_ADDED
+  COMPLIANCE_ALERT
+  HIGH_RISK_TRANSACTION
+  SANCTIONS_HIT
+  THRESHOLD_EXCEEDED
+  SYSTEM_ALERT
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertRuleCondition {
+  TRANSACTION_AMOUNT_EXCEEDS
+  RISK_LEVEL_IS
+  COMPLIANCE_STATUS_IS
+  SANCTIONS_HIT
+  CASE_ESCALATED
+  CASE_UNASSIGNED_DURATION
+}
+
+model Notification {
+  id            String               @id @default(uuid())
+  userId        String
+  type          NotificationType
+  priority      NotificationPriority
+  title         String
+  message       String               @db.Text
+  referenceId   String?
+  referenceType String?
+  isRead        Boolean              @default(false)
+  readAt        DateTime?
+  createdAt     DateTime             @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model AlertRule {
+  id               String               @id @default(uuid())
+  name             String
+  description      String               @db.Text
+  condition        AlertRuleCondition
+  threshold        Float?
+  value            String?
+  notificationType NotificationType
+  priority         NotificationPriority
+  targetRoles      UserRole[]
+  isActive         Boolean              @default(true)
+  createdBy        String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([isActive])
+  @@index([condition])
+}
+
+model NotificationPreference {
+  id                 String               @id @default(uuid())
+  userId             String               @unique
+  enabledTypes       NotificationType[]
+  emailNotifications Boolean              @default(false)
+  highPriorityOnly   Boolean              @default(false)
+  updatedAt          DateTime             @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }

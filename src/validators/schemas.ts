@@ -180,3 +180,59 @@ export const caseFilterSchema = z.object({
 
 export type CreateCaseInput = z.infer<typeof createCaseSchema>;
 export type CaseFilterInput = z.infer<typeof caseFilterSchema>;
+
+// ---------------------------------------------------------------------------
+// Notification & Alert Schemas
+// ---------------------------------------------------------------------------
+
+import {
+  NotificationType,
+  NotificationPriority,
+  AlertRuleCondition,
+} from '../types';
+
+export const createAlertRuleSchema = z.object({
+  name: z.string().min(3, 'Name must be at least 3 characters').max(200),
+  description: z.string().min(10, 'Description must be at least 10 characters').max(1000),
+  condition: z.nativeEnum(AlertRuleCondition),
+  threshold: z.number().nonnegative().optional(),
+  value: z.string().max(200).optional(),
+  notificationType: z.nativeEnum(NotificationType),
+  priority: z.nativeEnum(NotificationPriority),
+  targetRoles: z.array(z.nativeEnum(UserRole)).min(1, 'At least one target role required'),
+  isActive: z.boolean().default(true),
+});
+
+export const updateAlertRuleSchema = z.object({
+  name: z.string().min(3).max(200).optional(),
+  description: z.string().min(10).max(1000).optional(),
+  condition: z.nativeEnum(AlertRuleCondition).optional(),
+  threshold: z.number().nonnegative().optional(),
+  value: z.string().max(200).optional(),
+  notificationType: z.nativeEnum(NotificationType).optional(),
+  priority: z.nativeEnum(NotificationPriority).optional(),
+  targetRoles: z.array(z.nativeEnum(UserRole)).min(1).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const notificationPreferencesSchema = z.object({
+  enabledTypes: z.array(z.nativeEnum(NotificationType)).optional(),
+  emailNotifications: z.boolean().optional(),
+  highPriorityOnly: z.boolean().optional(),
+});
+
+export const notificationFilterSchema = z.object({
+  type: z.nativeEnum(NotificationType).optional(),
+  priority: z.nativeEnum(NotificationPriority).optional(),
+  isRead: z
+    .union([z.boolean(), z.enum(['true', 'false'])])
+    .transform((v) => (typeof v === 'string' ? v === 'true' : v))
+    .optional(),
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+});
+
+export type CreateAlertRuleInput = z.infer<typeof createAlertRuleSchema>;
+export type UpdateAlertRuleInput = z.infer<typeof updateAlertRuleSchema>;
+export type NotificationPreferencesInput = z.infer<typeof notificationPreferencesSchema>;
+export type NotificationFilterInput = z.infer<typeof notificationFilterSchema>;

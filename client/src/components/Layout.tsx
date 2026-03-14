@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import NotificationBell from './NotificationBell';
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -26,6 +27,18 @@ export default function Layout() {
       <Sidebar />
 
       <main className="main-content">
+        {/* Top bar with notification bell */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            padding: '8px 20px',
+            borderBottom: '1px solid var(--border)',
+            background: 'var(--bg-surface)',
+          }}
+        >
+          <NotificationBell />
+        </div>
         <Outlet />
       </main>
     </div>
