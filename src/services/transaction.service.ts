@@ -149,7 +149,7 @@ export async function createTransaction(
 
     const reason =
       `Transaction flagged automatically. Risk score: ${riskScore}, Risk level: ${riskLevel}.` +
-      `${sanctionsDetail} Amount: $${transaction.amountUSD} USD on ${transaction.network}.`;
+      ` ${sanctionsDetail ? sanctionsDetail.trim() + ' ' : ''}Amount: $${transaction.amountUSD} USD on ${transaction.network}.`;
     try {
       autoCreateCase(transaction, reason, category);
     } catch (err) {

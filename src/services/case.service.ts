@@ -483,7 +483,7 @@ export function autoCreateCase(
   const newCase: Case = {
     id: uuidv4(),
     caseNumber: generateCaseNumber(),
-    title: `[AUTO] ${category.replace(/_/g, ' ')} — ${transaction.txHash || transaction.id}`,
+    title: `[AUTO] ${category.replace(/_/g, ' ')} - ${transaction.txHash || transaction.id}`,
     description: reason,
     category,
     status: CaseStatus.OPEN,
