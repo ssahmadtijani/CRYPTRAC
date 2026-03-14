@@ -17,6 +17,7 @@ import CaseDetail from './pages/CaseDetail';
 import Notifications from './pages/Notifications';
 import AlertRules from './pages/AlertRules';
 import AuditLog from './pages/AuditLog';
+import Analytics from './pages/Analytics';
 import './App.css';
 
 export default function App() {
@@ -37,6 +38,7 @@ export default function App() {
             }
           >
             <Route path="/" element={<Dashboard />} />
+            <Route path="/analytics" element={<Analytics />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/transactions/:id" element={<TransactionDetail />} />
             <Route path="/wallets" element={<Wallets />} />

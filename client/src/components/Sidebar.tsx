@@ -4,6 +4,7 @@ import { UserRole } from '../types';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '⬛' },
+  { to: '/analytics', label: 'Analytics', icon: '📈' },
   { to: '/transactions', label: 'Transactions', icon: '↔' },
   { to: '/wallets', label: 'Wallets', icon: '🔑' },
   { to: '/compliance', label: 'Compliance', icon: '📋' },

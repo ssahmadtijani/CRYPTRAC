@@ -586,3 +586,185 @@ export interface AuditFilterParams {
   page?: number;
   pageSize?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Analytics Types
+// ---------------------------------------------------------------------------
+
+export interface AnalyticsKPIs {
+  totalTransactions: number;
+  totalTransactionsLast24h: number;
+  totalTransactionsLast7d: number;
+  totalVolumeUSD: number;
+  volumeLast24h: number;
+  volumeLast7d: number;
+  activeWallets: number;
+  flaggedWallets: number;
+  sanctionedWallets: number;
+  openCases: number;
+  criticalCases: number;
+  complianceRate: number;
+  averageRiskScore: number;
+}
+
+export interface TimeSeriesPoint {
+  date: string;
+  count: number;
+  volumeUSD: number;
+  flaggedCount: number;
+}
+
+export interface RiskDistributionItem {
+  level: RiskLevel;
+  count: number;
+  percentage: number;
+}
+
+export interface AssetBreakdownItem {
+  asset: string;
+  count: number;
+  volumeUSD: number;
+  percentage: number;
+}
+
+export interface NetworkBreakdownItem {
+  network: string;
+  count: number;
+  volumeUSD: number;
+}
+
+export interface TopWalletItem {
+  address: string;
+  network: string;
+  riskScore: number;
+  riskLevel: RiskLevel;
+  transactionCount: number;
+  totalVolumeUSD: number;
+  isSanctioned: boolean;
+}
+
+export interface ComplianceOverviewItem {
+  status: ComplianceStatus;
+  count: number;
+  percentage: number;
+}
+
+export interface GeographicBreakdownItem {
+  region: string;
+  count: number;
+  volumeUSD: number;
+}
+
+// ---------------------------------------------------------------------------
+// Pattern Detection Types
+// ---------------------------------------------------------------------------
+
+export interface StructuringPattern {
+  walletAddress: string;
+  transactions: Transaction[];
+  totalAmount: number;
+  timeWindowHours: number;
+  detectedAt: string;
+}
+
+export interface RapidMovementPattern {
+  walletAddress: string;
+  inboundTransaction: Transaction;
+  outboundTransaction: Transaction;
+  timeDeltaMinutes: number;
+  amountUSD: number;
+  detectedAt: string;
+}
+
+export interface LayeringPattern {
+  chain: Transaction[];
+  originAddress: string;
+  finalAddress: string;
+  hops: number;
+  totalVolumeUSD: number;
+  detectedAt: string;
+}
+
+export interface RoundTripPattern {
+  originAddress: string;
+  transactions: Transaction[];
+  totalVolumeUSD: number;
+  roundTripMinutes: number;
+  detectedAt: string;
+}
+
+export interface PatternDetectionResult {
+  structuring: StructuringPattern[];
+  rapidMovement: RapidMovementPattern[];
+  layering: LayeringPattern[];
+  roundTripping: RoundTripPattern[];
+  summary: {
+    totalPatterns: number;
+    structuringCount: number;
+    rapidMovementCount: number;
+    layeringCount: number;
+    roundTrippingCount: number;
+    detectedAt: string;
+  };
+}
+
+export interface PatternHistoryEntry {
+  id: string;
+  patternType: 'STRUCTURING' | 'RAPID_MOVEMENT' | 'LAYERING' | 'ROUND_TRIPPING';
+  walletAddress: string;
+  transactionCount: number;
+  totalVolumeUSD: number;
+  detectedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Network Analysis Types
+// ---------------------------------------------------------------------------
+
+export interface GraphNode {
+  id: string;
+  label?: string;
+  riskScore: number;
+  riskLevel: RiskLevel;
+  isSanctioned: boolean;
+  transactionCount: number;
+  totalVolumeUSD: number;
+  type: 'sender' | 'receiver' | 'both';
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  weight: number;
+  transactionCount: number;
+  assets: string[];
+  latestTimestamp: string;
+}
+
+export interface TransactionGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  stats: {
+    totalNodes: number;
+    totalEdges: number;
+    densityScore: number;
+    highRiskNodes: number;
+    clusters: number;
+  };
+}
+
+export interface WalletCluster {
+  clusterId: string;
+  addresses: string[];
+  totalVolume: number;
+  riskLevel: RiskLevel;
+  transactionCount: number;
+}
+
+export interface RiskPath {
+  path: string[];
+  edges: GraphEdge[];
+  totalVolumeUSD: number;
+  maxRiskLevel: RiskLevel;
+  containsSanctioned: boolean;
+}
