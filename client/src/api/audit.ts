@@ -50,8 +50,7 @@ export const exportApi = {
  * Triggers a file download from an API response blob/arraybuffer.
  */
 export function downloadFile(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: any,
+  data: ArrayBuffer | Blob,
   filename: string,
   mimeType: string
 ): void {

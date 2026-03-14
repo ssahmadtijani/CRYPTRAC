@@ -456,8 +456,7 @@ export interface ExportResult {
 export async function exportData(
   resourceType: ExportResourceType,
   format: ExportFormat,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: any[]
+  data: (Transaction | ComplianceReport | TaxAssessment | Case | AuditEntry)[]
 ): Promise<ExportResult> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const baseName = `${resourceType}-${timestamp}`;

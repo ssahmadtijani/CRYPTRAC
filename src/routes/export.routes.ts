@@ -49,6 +49,7 @@ function sendExport(res: Response, result: exportService.ExportResult): void {
  */
 exportRoutes.get(
   '/transactions',
+  apiRateLimiter,
   authenticate,
   authorize(...EXPORT_ROLES),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -101,6 +102,7 @@ exportRoutes.get(
  */
 exportRoutes.get(
   '/compliance-reports',
+  apiRateLimiter,
   authenticate,
   authorize(...EXPORT_ROLES),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -147,6 +149,7 @@ exportRoutes.get(
  */
 exportRoutes.get(
   '/tax-assessments',
+  apiRateLimiter,
   authenticate,
   authorize(...EXPORT_ROLES),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -192,6 +195,7 @@ exportRoutes.get(
  */
 exportRoutes.get(
   '/cases',
+  apiRateLimiter,
   authenticate,
   authorize(...EXPORT_ROLES),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -239,6 +243,7 @@ exportRoutes.get(
  */
 exportRoutes.get(
   '/audit-logs',
+  apiRateLimiter,
   authenticate,
   authorize(UserRole.ADMIN, UserRole.AUDITOR),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {

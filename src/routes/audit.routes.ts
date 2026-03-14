@@ -24,6 +24,7 @@ const AUDIT_ROLES = [UserRole.ADMIN, UserRole.AUDITOR, UserRole.COMPLIANCE_OFFIC
  */
 auditRoutes.get(
   '/',
+  apiRateLimiter,
   authenticate,
   authorize(...AUDIT_ROLES),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -61,6 +62,7 @@ auditRoutes.get(
  */
 auditRoutes.get(
   '/stats',
+  apiRateLimiter,
   authenticate,
   authorize(...AUDIT_ROLES),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -81,6 +83,7 @@ auditRoutes.get(
  */
 auditRoutes.get(
   '/:id',
+  apiRateLimiter,
   authenticate,
   authorize(...AUDIT_ROLES),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
