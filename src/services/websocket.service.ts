@@ -185,7 +185,7 @@ export function initializeWebSocket(server: HttpServer): WebSocketServer {
   // User deactivated → ADMIN
   eventBus.on('user:deactivated', (data: unknown) => {
     sendToRoles([UserRole.ADMIN], {
-      type: WSEventType.USER_SUSPENDED,
+      type: WSEventType.SECURITY_ALERT,
       payload: data,
       timestamp: new Date(),
     });
