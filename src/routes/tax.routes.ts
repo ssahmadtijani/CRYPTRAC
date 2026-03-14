@@ -24,7 +24,7 @@ taxRoutes.post(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.userId;
-      const txs = exchangeService.getAllExchangeTransactions(userId);
+      const txs = await exchangeService.getAllExchangeTransactions(userId);
       const events = await taxEngineService.processAllTransactions(userId, txs);
 
       const response: ApiResponse<{ processed: number; taxableEvents: number }> = {
@@ -55,7 +55,7 @@ taxRoutes.get(
       if (req.query.exchange) filters.exchange = req.query.exchange as string;
       if (req.query.taxYear) filters.taxYear = parseInt(req.query.taxYear as string, 10);
 
-      const events = taxEngineService.getTaxableEvents(userId, filters);
+      const events = await taxEngineService.getTaxableEvents(userId, filters);
       const response: ApiResponse<typeof events> = {
         success: true,
         data: events,
@@ -113,7 +113,7 @@ taxRoutes.get(
   authenticate,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const assessments = taxAssessmentService.getUserAssessments(req.user!.userId);
+      const assessments = await taxAssessmentService.getUserAssessments(req.user!.userId);
       const response: ApiResponse<typeof assessments> = {
         success: true,
         data: assessments,
@@ -135,7 +135,7 @@ taxRoutes.get(
   authenticate,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const assessment = taxAssessmentService.getAssessment(req.params.id as string);
+      const assessment = await taxAssessmentService.getAssessment(req.params.id as string);
       if (!assessment) {
         res.status(404).json({
           success: false,
@@ -165,8 +165,10 @@ taxRoutes.get(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.userId;
-      const assessments = taxAssessmentService.getUserAssessments(userId);
-      const events = taxEngineService.getTaxableEvents(userId);
+      const [assessments, events] = await Promise.all([
+        taxAssessmentService.getUserAssessments(userId),
+        taxEngineService.getTaxableEvents(userId),
+      ]);
 
       const totalTaxLiabilityUSD = assessments.reduce(
         (sum, a) => sum + a.totalTaxLiabilityUSD,

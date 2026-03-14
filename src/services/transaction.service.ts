@@ -3,7 +3,7 @@
  * Handles transaction creation, retrieval, and risk assessment
  */
 
-import { v4 as uuidv4 } from 'uuid';
+import { Prisma } from '@prisma/client';
 import {
   Transaction,
   TransactionFilter,
@@ -13,9 +13,7 @@ import {
 } from '../types';
 import { CreateTransactionInput } from '../validators/schemas';
 import { logger } from '../utils/logger';
-
-// In-memory transaction store (replace with Prisma in production)
-const transactions: Map<string, Transaction> = new Map();
+import { prisma } from '../lib/prisma';
 
 // ---------------------------------------------------------------------------
 // Risk scoring thresholds (USD)
@@ -33,6 +31,56 @@ const SANCTIONED_ADDRESSES = new Set([
 ]);
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function mapPrismaTransaction(t: {
+  id: string;
+  userId: string;
+  type: string;
+  txHash: string | null;
+  senderAddress: string;
+  receiverAddress: string;
+  asset: string;
+  amount: number;
+  amountUSD: number;
+  fee: number;
+  feeUSD: number;
+  blockNumber: number | null;
+  network: string;
+  riskLevel: string;
+  riskScore: number;
+  complianceStatus: string;
+  metadata: unknown;
+  timestamp: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}): Transaction {
+  return {
+    id: t.id,
+    userId: t.userId,
+    type: t.type as Transaction['type'],
+    txHash: t.txHash ?? '',
+    senderAddress: t.senderAddress,
+    receiverAddress: t.receiverAddress,
+    asset: t.asset,
+    amount: t.amount,
+    amountUSD: t.amountUSD,
+    fee: t.fee,
+    feeUSD: t.feeUSD,
+    blockNumber: t.blockNumber ?? undefined,
+    network: t.network,
+    riskLevel: t.riskLevel as RiskLevel,
+    riskScore: t.riskScore,
+    complianceStatus: t.complianceStatus as ComplianceStatus,
+    metadata: t.metadata as Record<string, unknown> | undefined,
+    timestamp: t.timestamp,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -43,37 +91,37 @@ export async function createTransaction(
   data: CreateTransactionInput,
   userId: string
 ): Promise<Transaction> {
-  const now = new Date();
-
-  const transaction: Transaction = {
-    id: uuidv4(),
-    txHash: data.txHash,
-    type: data.type,
+  // Calculate risk before saving
+  const { riskLevel, riskScore } = assessTransactionRisk({
     senderAddress: data.senderAddress,
     receiverAddress: data.receiverAddress,
-    asset: data.asset,
-    amount: data.amount,
     amountUSD: data.amountUSD,
-    fee: data.fee,
-    feeUSD: data.feeUSD,
-    blockNumber: data.blockNumber,
-    network: data.network,
-    timestamp: data.timestamp,
-    riskLevel: RiskLevel.LOW,
-    riskScore: 0,
-    complianceStatus: ComplianceStatus.PENDING,
-    userId,
-    metadata: data.metadata,
-    createdAt: now,
-    updatedAt: now,
-  };
+    type: data.type as Transaction['type'],
+  } as Transaction);
 
-  // Perform risk assessment
-  const { riskLevel, riskScore } = assessTransactionRisk(transaction);
-  transaction.riskLevel = riskLevel;
-  transaction.riskScore = riskScore;
+  const created = await prisma.transaction.create({
+    data: {
+      userId,
+      type: data.type,
+      txHash: data.txHash,
+      senderAddress: data.senderAddress,
+      receiverAddress: data.receiverAddress,
+      asset: data.asset,
+      amount: data.amount,
+      amountUSD: data.amountUSD,
+      fee: data.fee,
+      feeUSD: data.feeUSD,
+      blockNumber: data.blockNumber,
+      network: data.network,
+      timestamp: data.timestamp,
+      riskLevel,
+      riskScore,
+      complianceStatus: ComplianceStatus.PENDING,
+      metadata: data.metadata as object | undefined,
+    },
+  });
 
-  transactions.set(transaction.id, transaction);
+  const transaction = mapPrismaTransaction(created);
 
   logger.info('Transaction created', {
     transactionId: transaction.id,
@@ -91,75 +139,50 @@ export async function createTransaction(
 export async function getTransactions(
   filter: TransactionFilter
 ): Promise<ApiResponse<Transaction[]>> {
-  let results = Array.from(transactions.values());
+  const where: Prisma.TransactionWhereInput = {};
 
-  if (filter.userId) {
-    results = results.filter((t) => t.userId === filter.userId);
+  if (filter.userId) where.userId = filter.userId;
+  if (filter.type) where.type = filter.type;
+  if (filter.riskLevel) where.riskLevel = filter.riskLevel;
+  if (filter.complianceStatus) where.complianceStatus = filter.complianceStatus;
+  if (filter.network) where.network = { equals: filter.network, mode: 'insensitive' };
+  if (filter.senderAddress)
+    where.senderAddress = { equals: filter.senderAddress, mode: 'insensitive' };
+  if (filter.receiverAddress)
+    where.receiverAddress = { equals: filter.receiverAddress, mode: 'insensitive' };
+  if (filter.asset)
+    where.asset = { contains: filter.asset, mode: 'insensitive' };
+  if (filter.minAmountUSD !== undefined || filter.maxAmountUSD !== undefined) {
+    where.amountUSD = {
+      ...(filter.minAmountUSD !== undefined ? { gte: filter.minAmountUSD } : {}),
+      ...(filter.maxAmountUSD !== undefined ? { lte: filter.maxAmountUSD } : {}),
+    };
   }
-  if (filter.type) {
-    results = results.filter((t) => t.type === filter.type);
-  }
-  if (filter.riskLevel) {
-    results = results.filter((t) => t.riskLevel === filter.riskLevel);
-  }
-  if (filter.complianceStatus) {
-    results = results.filter((t) => t.complianceStatus === filter.complianceStatus);
-  }
-  if (filter.asset) {
-    results = results.filter((t) =>
-      t.asset.toLowerCase().includes(filter.asset!.toLowerCase())
-    );
-  }
-  if (filter.network) {
-    results = results.filter((t) =>
-      t.network.toLowerCase() === filter.network!.toLowerCase()
-    );
-  }
-  if (filter.startDate) {
-    results = results.filter((t) => t.timestamp >= filter.startDate!);
-  }
-  if (filter.endDate) {
-    results = results.filter((t) => t.timestamp <= filter.endDate!);
-  }
-  if (filter.minAmountUSD !== undefined) {
-    results = results.filter((t) => t.amountUSD >= filter.minAmountUSD!);
-  }
-  if (filter.maxAmountUSD !== undefined) {
-    results = results.filter((t) => t.amountUSD <= filter.maxAmountUSD!);
-  }
-  if (filter.senderAddress) {
-    results = results.filter((t) =>
-      t.senderAddress.toLowerCase() === filter.senderAddress!.toLowerCase()
-    );
-  }
-  if (filter.receiverAddress) {
-    results = results.filter((t) =>
-      t.receiverAddress.toLowerCase() === filter.receiverAddress!.toLowerCase()
-    );
+  if (filter.startDate || filter.endDate) {
+    where.timestamp = {
+      ...(filter.startDate ? { gte: filter.startDate } : {}),
+      ...(filter.endDate ? { lte: filter.endDate } : {}),
+    };
   }
 
-  const total = results.length;
-
-  // Sort
-  const sortBy = (filter.sortBy as keyof Transaction) ?? 'createdAt';
+  const sortBy = (filter.sortBy ?? 'createdAt') as string;
   const sortOrder = filter.sortOrder ?? 'desc';
-  results.sort((a, b) => {
-    const aVal = a[sortBy];
-    const bVal = b[sortBy];
-    if (aVal === undefined || bVal === undefined) return 0;
-    const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-    return sortOrder === 'asc' ? cmp : -cmp;
-  });
-
-  // Paginate
   const page = filter.page ?? 1;
   const pageSize = filter.pageSize ?? 20;
-  const start = (page - 1) * pageSize;
-  const paginated = results.slice(start, start + pageSize);
+
+  const [total, records] = await Promise.all([
+    prisma.transaction.count({ where }),
+    prisma.transaction.findMany({
+      where,
+      orderBy: { [sortBy]: sortOrder },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ]);
 
   return {
     success: true,
-    data: paginated,
+    data: records.map(mapPrismaTransaction),
     meta: {
       page,
       pageSize,
@@ -173,7 +196,8 @@ export async function getTransactions(
  * Returns a single transaction by ID, or null if not found.
  */
 export async function getTransactionById(id: string): Promise<Transaction | null> {
-  return transactions.get(id) ?? null;
+  const found = await prisma.transaction.findUnique({ where: { id } });
+  return found ? mapPrismaTransaction(found) : null;
 }
 
 /**
@@ -181,7 +205,7 @@ export async function getTransactionById(id: string): Promise<Transaction | null
  * Returns a risk level and numeric score (0-100).
  */
 export function assessTransactionRisk(
-  transaction: Transaction
+  transaction: Pick<Transaction, 'amountUSD' | 'senderAddress' | 'receiverAddress' | 'type'>
 ): { riskLevel: RiskLevel; riskScore: number } {
   let score = 0;
 
@@ -204,12 +228,6 @@ export function assessTransactionRisk(
 
   if (senderSanctioned || receiverSanctioned) {
     score += 50;
-  }
-
-  // High-risk transaction types
-  const highRiskTypes = ['MIXING', 'TUMBLING'];
-  if (highRiskTypes.includes(transaction.type)) {
-    score += 20;
   }
 
   // Round-number amounts can indicate structuring

@@ -53,7 +53,7 @@ exchangeRoutes.get(
   authenticate,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const connections = exchangeService.getConnectedExchanges(req.user!.userId);
+      const connections = await exchangeService.getConnectedExchanges(req.user!.userId);
       const response: ApiResponse<typeof connections> = {
         success: true,
         data: connections,
@@ -96,7 +96,7 @@ exchangeRoutes.get(
   authenticate,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const txs = exchangeService.getAllExchangeTransactions(req.user!.userId);
+      const txs = await exchangeService.getAllExchangeTransactions(req.user!.userId);
       const response: ApiResponse<typeof txs> = {
         success: true,
         data: txs,
@@ -117,7 +117,7 @@ exchangeRoutes.get(
   authenticate,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const txs = exchangeService.getExchangeTransactions(
+      const txs = await exchangeService.getExchangeTransactions(
         req.user!.userId,
         req.params.name as string
       );

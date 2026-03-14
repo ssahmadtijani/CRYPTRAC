@@ -135,7 +135,7 @@ CRYPTRAC/
 
 - Node.js 20+
 - npm 10+
-- PostgreSQL 15+ *(only needed for production — dev uses in-memory store)*
+- PostgreSQL 17+
 
 ### 1. Clone the Repository
 
@@ -156,10 +156,10 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env`:
+Edit `.env` with your PostgreSQL credentials:
 
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/cryptrac"
+DATABASE_URL="postgresql://postgres:password@localhost:5432/cryptrac?schema=public"
 JWT_SECRET="your-secret-key-min-32-chars"
 JWT_EXPIRY="24h"
 PORT=3000
@@ -167,7 +167,23 @@ NODE_ENV=development
 LOG_LEVEL=info
 ```
 
-### 4. Run the Backend
+### 4. Set Up the Database
+
+```bash
+# Create the database
+createdb cryptrac
+
+# Run database migrations
+npx prisma migrate dev --name init
+
+# Generate Prisma client (if not already done)
+npx prisma generate
+
+# (Optional) Seed demo data
+npm run seed
+```
+
+### 5. Run the Backend
 
 ```bash
 # Development (with hot reload)
@@ -176,7 +192,7 @@ npm run dev
 
 The API will be available at `http://localhost:3000`.
 
-### 5. Run Tests
+### 6. Run Tests
 
 ```bash
 npm test

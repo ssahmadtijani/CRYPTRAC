@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { logger } from './utils/logger';
+import { prisma } from './lib/prisma';
 import { transactionRoutes } from './routes/transaction.routes';
 import { complianceRoutes } from './routes/compliance.routes';
 import { walletRoutes } from './routes/wallet.routes';
@@ -51,9 +52,19 @@ app.use('/api/v1/demo', demoRoutes);
 // Error handling
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  logger.info(`CRYPTRAC server running on port ${PORT}`);
-  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+// Start server after DB connection
+prisma
+  .$connect()
+  .then(() => {
+    logger.info('Database connected');
+    app.listen(PORT, () => {
+      logger.info(`CRYPTRAC server running on port ${PORT}`);
+      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+  })
+  .catch((err: Error) => {
+    logger.error('Failed to connect to database', err);
+    process.exit(1);
+  });
 
 export default app;

@@ -3,7 +3,7 @@
  * Aggregates tax engine output into per-user and authority-level summaries
  */
 
-import { v4 as uuidv4 } from 'uuid';
+import { Prisma } from '@prisma/client';
 import {
   TaxAssessment,
   TaxableEvent,
@@ -19,13 +19,7 @@ import {
 import { USD_TO_NGN, getTaxableEvents, processAllTransactions } from './tax-engine.service';
 import { getAllExchangeTransactions, getConnectedExchanges } from './exchange.service';
 import { logger } from '../utils/logger';
-
-// ---------------------------------------------------------------------------
-// In-memory stores
-// ---------------------------------------------------------------------------
-
-const assessmentStore: Map<string, TaxAssessment> = new Map(); // assessmentId → assessment
-const userAssessmentIndex: Map<string, string[]> = new Map(); // userId → assessmentId[]
+import { prisma } from '../lib/prisma';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -50,7 +44,7 @@ function filterEventsByPeriod(
   const { start, end } = periodMonths(period);
   return events.filter((e) => {
     const year = e.timestamp.getFullYear();
-    const month = e.timestamp.getMonth() + 1; // 1-based
+    const month = e.timestamp.getMonth() + 1;
     return year === taxYear && month >= start && month <= end;
   });
 }
@@ -80,6 +74,66 @@ function buildExchangeBreakdown(events: TaxableEvent[]): ExchangeTaxBreakdown[] 
   return Array.from(map.values());
 }
 
+function mapPrismaAssessment(a: {
+  id: string;
+  userId: string;
+  taxYear: number;
+  period: string;
+  totalTransactions: number;
+  totalTaxableEvents: number;
+  totalProceedsUSD: number;
+  totalCostBasisUSD: number;
+  netCapitalGainUSD: number;
+  shortTermGainUSD: number;
+  longTermGainUSD: number;
+  stakingIncomeUSD: number;
+  miningIncomeUSD: number;
+  airdropIncomeUSD: number;
+  totalIncomeUSD: number;
+  capitalGainsTaxUSD: number;
+  incomeTaxUSD: number;
+  totalTaxLiabilityUSD: number;
+  totalTaxLiabilityNGN: number;
+  exchangeBreakdown: unknown;
+  walletBreakdown: unknown;
+  status: string;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  filedAt: Date | null;
+  generatedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}): TaxAssessment {
+  return {
+    id: a.id,
+    userId: a.userId,
+    taxYear: a.taxYear,
+    period: a.period as AssessmentPeriod,
+    totalTransactions: a.totalTransactions,
+    totalTaxableEvents: a.totalTaxableEvents,
+    totalProceedsUSD: a.totalProceedsUSD,
+    totalCostBasisUSD: a.totalCostBasisUSD,
+    netCapitalGainUSD: a.netCapitalGainUSD,
+    shortTermGainUSD: a.shortTermGainUSD,
+    longTermGainUSD: a.longTermGainUSD,
+    stakingIncomeUSD: a.stakingIncomeUSD,
+    miningIncomeUSD: a.miningIncomeUSD,
+    airdropIncomeUSD: a.airdropIncomeUSD,
+    totalIncomeUSD: a.totalIncomeUSD,
+    capitalGainsTaxUSD: a.capitalGainsTaxUSD,
+    incomeTaxUSD: a.incomeTaxUSD,
+    totalTaxLiabilityUSD: a.totalTaxLiabilityUSD,
+    totalTaxLiabilityNGN: a.totalTaxLiabilityNGN,
+    exchangeBreakdown: (a.exchangeBreakdown as ExchangeTaxBreakdown[]) ?? [],
+    walletBreakdown: (a.walletBreakdown as WalletTaxBreakdown[]) ?? [],
+    status: a.status as AssessmentStatus,
+    generatedAt: a.generatedAt,
+    reviewedBy: a.reviewedBy ?? undefined,
+    reviewedAt: a.reviewedAt ?? undefined,
+    filedAt: a.filedAt ?? undefined,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -87,11 +141,9 @@ function buildExchangeBreakdown(events: TaxableEvent[]): ExchangeTaxBreakdown[] 
 export async function generateAssessment(
   userId: string,
   taxYear: number,
-  period: AssessmentPeriod,
-  allUsers?: Map<string, User>
+  period: AssessmentPeriod
 ): Promise<TaxAssessment> {
-  // Ensure latest transactions are processed
-  const txs = getAllExchangeTransactions(userId);
+  const txs = await getAllExchangeTransactions(userId);
   const allEvents = await processAllTransactions(userId, txs);
   const periodEvents = filterEventsByPeriod(allEvents, taxYear, period);
 
@@ -146,18 +198,14 @@ export async function generateAssessment(
 
   const totalTaxLiabilityUSD = capitalGainsTaxUSD + incomeTaxUSD;
   const totalTaxLiabilityNGN = totalTaxLiabilityUSD * USD_TO_NGN;
-
   const exchangeBreakdown = buildExchangeBreakdown(periodEvents);
 
-  // Build wallet breakdown from exchange transactions
-  const walletBreakdown: WalletTaxBreakdown[] = [];
   const walletMap = new Map<string, WalletTaxBreakdown>();
   for (const e of periodEvents) {
-    // Use exchange as wallet proxy when no explicit address
-    const walletKey = `${e.exchange}-wallet`;
-    if (!walletMap.has(walletKey)) {
-      walletMap.set(walletKey, {
-        walletAddress: walletKey,
+    const key = `${e.exchange}-wallet`;
+    if (!walletMap.has(key)) {
+      walletMap.set(key, {
+        walletAddress: key,
         network: 'Multi-chain',
         transactionCount: 0,
         totalVolumeUSD: 0,
@@ -166,45 +214,62 @@ export async function generateAssessment(
         totalTaxNGN: 0,
       });
     }
-    const wb = walletMap.get(walletKey)!;
+    const wb = walletMap.get(key)!;
     wb.transactionCount++;
     wb.totalVolumeUSD += e.proceedsUSD;
     wb.totalGainLossUSD += e.gainLossUSD;
     wb.totalTaxUSD += e.taxAmountUSD;
     wb.totalTaxNGN += e.taxAmountNGN;
   }
-  walletBreakdown.push(...walletMap.values());
+  const walletBreakdown = Array.from(walletMap.values());
 
-  const assessment: TaxAssessment = {
-    id: uuidv4(),
-    userId,
-    taxYear,
-    period,
-    totalTransactions: txs.length,
-    totalTaxableEvents: periodEvents.length,
-    totalProceedsUSD,
-    totalCostBasisUSD,
-    netCapitalGainUSD,
-    shortTermGainUSD,
-    longTermGainUSD,
-    stakingIncomeUSD,
-    miningIncomeUSD,
-    airdropIncomeUSD,
-    totalIncomeUSD,
-    capitalGainsTaxUSD,
-    incomeTaxUSD,
-    totalTaxLiabilityUSD,
-    totalTaxLiabilityNGN,
-    exchangeBreakdown,
-    walletBreakdown,
-    status: 'CALCULATED' as AssessmentStatus,
-    generatedAt: new Date(),
-  };
-
-  assessmentStore.set(assessment.id, assessment);
-  const userIds = userAssessmentIndex.get(userId) ?? [];
-  userIds.push(assessment.id);
-  userAssessmentIndex.set(userId, userIds);
+  const record = await prisma.taxAssessment.upsert({
+    where: { userId_taxYear_period: { userId, taxYear, period } },
+    create: {
+      userId,
+      taxYear,
+      period,
+      totalTransactions: txs.length,
+      totalTaxableEvents: periodEvents.length,
+      totalProceedsUSD,
+      totalCostBasisUSD,
+      netCapitalGainUSD,
+      shortTermGainUSD,
+      longTermGainUSD,
+      stakingIncomeUSD,
+      miningIncomeUSD,
+      airdropIncomeUSD,
+      totalIncomeUSD,
+      capitalGainsTaxUSD,
+      incomeTaxUSD,
+      totalTaxLiabilityUSD,
+      totalTaxLiabilityNGN,
+      exchangeBreakdown: exchangeBreakdown as object,
+      walletBreakdown: walletBreakdown as object,
+      status: 'CALCULATED',
+    },
+    update: {
+      totalTransactions: txs.length,
+      totalTaxableEvents: periodEvents.length,
+      totalProceedsUSD,
+      totalCostBasisUSD,
+      netCapitalGainUSD,
+      shortTermGainUSD,
+      longTermGainUSD,
+      stakingIncomeUSD,
+      miningIncomeUSD,
+      airdropIncomeUSD,
+      totalIncomeUSD,
+      capitalGainsTaxUSD,
+      incomeTaxUSD,
+      totalTaxLiabilityUSD,
+      totalTaxLiabilityNGN,
+      exchangeBreakdown: exchangeBreakdown as object,
+      walletBreakdown: walletBreakdown as object,
+      status: 'CALCULATED',
+      generatedAt: new Date(),
+    },
+  });
 
   logger.info('Tax assessment generated', {
     userId,
@@ -213,16 +278,24 @@ export async function generateAssessment(
     totalTaxLiabilityNGN,
   });
 
-  return assessment;
+  return mapPrismaAssessment(record);
 }
 
-export function getAssessment(assessmentId: string): TaxAssessment | undefined {
-  return assessmentStore.get(assessmentId);
+export async function getAssessment(
+  assessmentId: string
+): Promise<TaxAssessment | undefined> {
+  const found = await prisma.taxAssessment.findUnique({
+    where: { id: assessmentId },
+  });
+  return found ? mapPrismaAssessment(found) : undefined;
 }
 
-export function getUserAssessments(userId: string): TaxAssessment[] {
-  const ids = userAssessmentIndex.get(userId) ?? [];
-  return ids.map((id) => assessmentStore.get(id)).filter(Boolean) as TaxAssessment[];
+export async function getUserAssessments(userId: string): Promise<TaxAssessment[]> {
+  const records = await prisma.taxAssessment.findMany({
+    where: { userId },
+    orderBy: { generatedAt: 'desc' },
+  });
+  return records.map(mapPrismaAssessment);
 }
 
 export interface AssessmentFilter {
@@ -233,46 +306,39 @@ export interface AssessmentFilter {
   minTaxNGN?: number;
 }
 
-export function getAllAssessments(filters?: AssessmentFilter): TaxAssessment[] {
-  let assessments = Array.from(assessmentStore.values());
+export async function getAllAssessments(
+  filters?: AssessmentFilter
+): Promise<TaxAssessment[]> {
+  const where: Prisma.TaxAssessmentWhereInput = {};
 
-  if (!filters) return assessments;
+  if (filters?.userId) where.userId = filters.userId;
+  if (filters?.taxYear) where.taxYear = filters.taxYear;
+  if (filters?.period) where.period = filters.period;
+  if (filters?.status) where.status = filters.status;
+  if (filters?.minTaxNGN !== undefined)
+    where.totalTaxLiabilityNGN = { gte: filters.minTaxNGN };
 
-  if (filters.userId) {
-    assessments = assessments.filter((a) => a.userId === filters.userId);
-  }
-  if (filters.taxYear) {
-    assessments = assessments.filter((a) => a.taxYear === filters.taxYear);
-  }
-  if (filters.period) {
-    assessments = assessments.filter((a) => a.period === filters.period);
-  }
-  if (filters.status) {
-    assessments = assessments.filter((a) => a.status === filters.status);
-  }
-  if (filters.minTaxNGN) {
-    assessments = assessments.filter(
-      (a) => a.totalTaxLiabilityNGN >= filters.minTaxNGN!
-    );
-  }
-
-  return assessments;
+  const records = await prisma.taxAssessment.findMany({ where });
+  return records.map(mapPrismaAssessment);
 }
 
-export function getAggregateStats(users: User[]): TaxAuthorityDashboard {
-  const allAssessments = Array.from(assessmentStore.values());
+export async function getAggregateStats(
+  users: User[]
+): Promise<TaxAuthorityDashboard> {
+  const allAssessments = await prisma.taxAssessment.findMany();
+  const mapped = allAssessments.map(mapPrismaAssessment);
 
-  const totalTaxLiabilityUSD = allAssessments.reduce(
+  const totalTaxLiabilityUSD = mapped.reduce(
     (sum, a) => sum + a.totalTaxLiabilityUSD,
     0
   );
   const totalTaxLiabilityNGN = totalTaxLiabilityUSD * USD_TO_NGN;
 
-  const flaggedAssessments = allAssessments.filter(
+  const flaggedAssessments = mapped.filter(
     (a) => a.totalTaxLiabilityNGN > 10_000_000
   ).length;
 
-  const filedAssessments = allAssessments.filter(
+  const filedAssessments = mapped.filter(
     (a) => a.status === 'FILED' || a.status === 'PAID'
   );
   const taxCollectedNGN = filedAssessments.reduce(
@@ -282,14 +348,11 @@ export function getAggregateStats(users: User[]): TaxAuthorityDashboard {
   const taxOutstandingNGN = totalTaxLiabilityNGN - taxCollectedNGN;
 
   // Exchange aggregation
-  const exchangeMap = new Map<string, ExchangeTaxBreakdown & { userSet: Set<string> }>();
-  for (const assessment of allAssessments) {
+  const exchangeMap = new Map<string, ExchangeTaxBreakdown>();
+  for (const assessment of mapped) {
     for (const eb of assessment.exchangeBreakdown) {
       if (!exchangeMap.has(eb.exchangeName)) {
-        exchangeMap.set(eb.exchangeName, {
-          ...eb,
-          userSet: new Set([assessment.userId]),
-        });
+        exchangeMap.set(eb.exchangeName, { ...eb });
       } else {
         const existing = exchangeMap.get(eb.exchangeName)!;
         existing.transactionCount += eb.transactionCount;
@@ -297,22 +360,17 @@ export function getAggregateStats(users: User[]): TaxAuthorityDashboard {
         existing.totalGainLossUSD += eb.totalGainLossUSD;
         existing.totalTaxUSD += eb.totalTaxUSD;
         existing.totalTaxNGN += eb.totalTaxNGN;
-        existing.userSet.add(assessment.userId);
       }
     }
   }
-
-  const byExchange: ExchangeTaxBreakdown[] = Array.from(exchangeMap.values()).map(
-    ({ userSet: _userSet, ...rest }) => rest
-  );
+  const byExchange = Array.from(exchangeMap.values());
 
   // Quarterly aggregation
   const quarterMap = new Map<string, { taxUSD: number; taxNGN: number }>();
   const quarters = ['2025-Q1', '2025-Q2', '2025-Q3', '2025-Q4', '2026-Q1'];
-  for (const q of quarters) {
-    quarterMap.set(q, { taxUSD: 0, taxNGN: 0 });
-  }
-  for (const assessment of allAssessments) {
+  for (const q of quarters) quarterMap.set(q, { taxUSD: 0, taxNGN: 0 });
+
+  for (const assessment of mapped) {
     const key = `${assessment.taxYear}-${assessment.period}`;
     if (quarterMap.has(key)) {
       const entry = quarterMap.get(key)!;
@@ -325,13 +383,13 @@ export function getAggregateStats(users: User[]): TaxAuthorityDashboard {
     ...vals,
   }));
 
-  const recentHighValueAssessments = allAssessments
+  const recentHighValueAssessments = mapped
     .filter((a) => a.totalTaxLiabilityNGN > 1_000_000)
     .sort((a, b) => b.totalTaxLiabilityNGN - a.totalTaxLiabilityNGN)
     .slice(0, 10);
 
-  const uniqueTaxpayers = new Set(allAssessments.map((a) => a.userId));
-  const totalTransactionsProcessed = allAssessments.reduce(
+  const uniqueTaxpayers = new Set(mapped.map((a) => a.userId));
+  const totalTransactionsProcessed = mapped.reduce(
     (sum, a) => sum + a.totalTransactions,
     0
   );
@@ -350,51 +408,43 @@ export function getAggregateStats(users: User[]): TaxAuthorityDashboard {
   };
 }
 
-export function getTaxpayerSummaries(users: User[]): TaxpayerSummary[] {
-  return users.map((user) => {
-    const userAssessments = getUserAssessments(user.id);
-    const connections = getConnectedExchanges(user.id);
-    const totalTaxLiabilityUSD = userAssessments.reduce(
-      (sum, a) => sum + a.totalTaxLiabilityUSD,
-      0
-    );
-    const totalTaxLiabilityNGN = totalTaxLiabilityUSD * USD_TO_NGN;
-    const totalVolumeUSD = userAssessments.reduce(
-      (sum, a) => sum + a.totalProceedsUSD,
-      0
-    );
-    const totalTransactions = userAssessments.reduce(
-      (sum, a) => sum + a.totalTransactions,
-      0
-    );
-    const latest = userAssessments.sort(
-      (a, b) => b.generatedAt.getTime() - a.generatedAt.getTime()
-    )[0];
-    const lastActivity = latest?.generatedAt;
+export async function getTaxpayerSummaries(
+  users: User[]
+): Promise<TaxpayerSummary[]> {
+  return Promise.all(
+    users.map(async (user) => {
+      const userAssessments = await getUserAssessments(user.id);
+      const connections = await getConnectedExchanges(user.id);
+      const totalTaxLiabilityUSD = userAssessments.reduce(
+        (sum, a) => sum + a.totalTaxLiabilityUSD,
+        0
+      );
+      const totalTaxLiabilityNGN = totalTaxLiabilityUSD * USD_TO_NGN;
+      const totalVolumeUSD = userAssessments.reduce(
+        (sum, a) => sum + a.totalProceedsUSD,
+        0
+      );
+      const totalTransactions = userAssessments.reduce(
+        (sum, a) => sum + a.totalTransactions,
+        0
+      );
+      const latest = userAssessments[0]; // already sorted desc by generatedAt
+      const lastActivity = latest?.generatedAt;
 
-    return {
-      userId: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      totalTransactions,
-      totalVolumeUSD,
-      totalTaxLiabilityUSD,
-      totalTaxLiabilityNGN,
-      exchanges: connections.map((c) => c.exchangeName),
-      latestAssessmentStatus: latest?.status,
-      isFlagged: totalTaxLiabilityNGN > 10_000_000,
-      lastActivity,
-    };
-  });
-}
-
-/** Directly inject a pre-built assessment (used by demo seeder) */
-export function injectAssessment(assessment: TaxAssessment): void {
-  assessmentStore.set(assessment.id, assessment);
-  const userIds = userAssessmentIndex.get(assessment.userId) ?? [];
-  if (!userIds.includes(assessment.id)) {
-    userIds.push(assessment.id);
-    userAssessmentIndex.set(assessment.userId, userIds);
-  }
+      return {
+        userId: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        totalTransactions,
+        totalVolumeUSD,
+        totalTaxLiabilityUSD,
+        totalTaxLiabilityNGN,
+        exchanges: connections.map((c) => c.exchangeName),
+        latestAssessmentStatus: latest?.status,
+        isFlagged: totalTaxLiabilityNGN > 10_000_000,
+        lastActivity,
+      };
+    })
+  );
 }

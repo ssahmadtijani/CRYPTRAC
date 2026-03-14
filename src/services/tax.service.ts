@@ -7,9 +7,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction, TaxEvent, TaxEventType, TaxSummary, TransactionType } from '../types';
 import { logger } from '../utils/logger';
-
-// In-memory tax event store (replace with Prisma in production)
-const taxEvents: Map<string, TaxEvent> = new Map();
+import { prisma } from '../lib/prisma';
 
 // ---------------------------------------------------------------------------
 // Tax rate constants (configurable via environment in production)
@@ -20,7 +18,7 @@ const INCOME_RATE = parseFloat(process.env.TAX_INCOME_RATE ?? '0.30');
 const LONG_TERM_THRESHOLD_DAYS = 365;
 
 // ---------------------------------------------------------------------------
-// FIFO cost basis tracking
+// FIFO cost basis tracking (in-memory, scoped per calculateTaxEvents call)
 // ---------------------------------------------------------------------------
 
 interface CostBasisLot {
@@ -38,6 +36,7 @@ const costBasisLots: Map<string, CostBasisLot[]> = new Map();
 
 /**
  * Calculates tax events for a user for a given tax year, using FIFO method.
+ * Stores resulting events to the database.
  */
 export async function calculateTaxEvents(
   userId: string,
@@ -68,12 +67,9 @@ export async function calculateTaxEvents(
       holdingPeriodDays = result.holdingPeriodDays;
       gainLoss = proceeds - costBasis;
     } else {
-      // Income events: proceeds = fair market value, costBasis = 0
       costBasis = 0;
       gainLoss = proceeds;
       proceeds = tx.amountUSD;
-
-      // Record incoming assets as new lots
       addToLots(tx.asset, tx.amount, tx.amountUSD / tx.amount, tx.timestamp);
     }
 
@@ -105,8 +101,29 @@ export async function calculateTaxEvents(
       createdAt: new Date(),
     };
 
-    taxEvents.set(taxEvent.id, taxEvent);
     events.push(taxEvent);
+  }
+
+  // Persist tax events
+  if (events.length > 0) {
+    await prisma.taxEvent.createMany({
+      data: events.map((e) => ({
+        id: e.id,
+        userId: e.userId,
+        transactionId: e.transactionId,
+        eventType: e.eventType,
+        asset: e.asset,
+        amount: e.amount,
+        costBasis: e.costBasis,
+        proceeds: e.proceeds,
+        gainLoss: e.gainLoss,
+        holdingPeriodDays: e.holdingPeriodDays,
+        taxYear: e.taxYear,
+        taxableAmount: e.taxableAmount,
+        taxRate: e.taxRate,
+        taxOwed: e.taxOwed,
+      })),
+    });
   }
 
   logger.info('Tax events calculated', {
@@ -193,16 +210,13 @@ export function classifyTaxEvent(transaction: Transaction): TaxEventType | null 
   switch (transaction.type) {
     case TransactionType.TRADE:
     case TransactionType.SWAP:
-      // Disposals trigger capital gains/losses
-      return TaxEventType.CAPITAL_GAIN_SHORT; // refined by holding period later
+      return TaxEventType.CAPITAL_GAIN_SHORT;
 
     case TransactionType.TRANSFER:
     case TransactionType.WITHDRAWAL:
-      // Pure transfers between own wallets are generally not taxable
       return null;
 
     case TransactionType.DEPOSIT:
-      // Receiving assets — record lot, not a taxable event itself
       return null;
 
     case TransactionType.MINING:
@@ -221,6 +235,7 @@ export function classifyTaxEvent(transaction: Transaction): TaxEventType | null 
 
 /**
  * Calculates cost basis using FIFO for a given asset and disposal amount.
+ * Uses the module-level costBasisLots Map (maintained across calls within a session).
  */
 export function calculateCostBasis(
   asset: string,
@@ -237,7 +252,6 @@ export function calculateCostBasis(
   let totalCost = 0;
   let earliestAcquisitionDate: Date | null = null;
 
-  // Determine processing order based on method
   const processLots = method === 'FIFO' ? [...lots] : [...lots].reverse();
 
   for (const lot of processLots) {
@@ -265,7 +279,6 @@ export function calculateCostBasis(
 
 /**
  * Adds a new lot to the FIFO queue for an asset.
- * Call this when receiving/buying assets.
  */
 export function addToLots(
   asset: string,

@@ -3,13 +3,10 @@
  * Wallet registration, risk scoring, and sanctions checking
  */
 
-import { v4 as uuidv4 } from 'uuid';
 import { Wallet, RiskLevel } from '../types';
 import { WalletInput } from '../validators/schemas';
 import { logger } from '../utils/logger';
-
-// In-memory wallet store (replace with Prisma in production)
-const wallets: Map<string, Wallet> = new Map();
+import { prisma } from '../lib/prisma';
 
 // ---------------------------------------------------------------------------
 // Stub sanctions list (replace with live OFAC/UN/EU list integration)
@@ -26,86 +23,123 @@ const SANCTIONED_ADDRESSES: Map<string, string> = new Map([
 ]);
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function mapPrismaWallet(w: {
+  id: string;
+  address: string;
+  network: string;
+  label: string | null;
+  riskScore: number;
+  riskLevel: string;
+  isSanctioned: boolean;
+  sanctionDetails: string | null;
+  userId: string;
+  firstSeen: Date;
+  lastSeen: Date;
+  transactionCount: number;
+  totalVolumeUSD: number;
+  createdAt: Date;
+  updatedAt: Date;
+}): Wallet {
+  return {
+    id: w.id,
+    address: w.address,
+    network: w.network,
+    label: w.label ?? undefined,
+    riskScore: w.riskScore,
+    riskLevel: w.riskLevel as RiskLevel,
+    isSanctioned: w.isSanctioned,
+    sanctionDetails: w.sanctionDetails ?? undefined,
+    userId: w.userId,
+    firstSeen: w.firstSeen,
+    lastSeen: w.lastSeen,
+    transactionCount: w.transactionCount,
+    totalVolumeUSD: w.totalVolumeUSD,
+    createdAt: w.createdAt,
+    updatedAt: w.updatedAt,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 /**
- * Registers a new wallet with initial risk scoring.
+ * Registers a new wallet with initial risk scoring, or returns existing.
  */
 export async function registerWallet(
   data: WalletInput,
   userId: string
 ): Promise<Wallet> {
-  const existing = wallets.get(data.address.toLowerCase());
-  if (existing) {
-    return existing;
-  }
-
-  const sanctionDetails = SANCTIONED_ADDRESSES.get(data.address.toLowerCase());
+  const address = data.address.toLowerCase();
+  const sanctionDetails = SANCTIONED_ADDRESSES.get(address);
   const isSanctioned = sanctionDetails !== undefined;
 
-  const riskScore = calculateInitialRiskScore(data.address, isSanctioned);
+  const riskScore = calculateInitialRiskScore(address, isSanctioned);
   const riskLevel = scoreToRiskLevel(riskScore);
 
-  const now = new Date();
-  const wallet: Wallet = {
-    id: uuidv4(),
-    address: data.address.toLowerCase(),
-    network: data.network,
-    label: data.label,
-    riskScore,
-    riskLevel,
-    isSanctioned,
-    sanctionDetails: sanctionDetails ?? undefined,
-    userId,
-    firstSeen: now,
-    lastSeen: now,
-    transactionCount: 0,
-    totalVolumeUSD: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  wallets.set(wallet.address, wallet);
+  const record = await prisma.wallet.upsert({
+    where: { address },
+    create: {
+      address,
+      network: data.network,
+      label: data.label,
+      riskScore,
+      riskLevel,
+      isSanctioned,
+      sanctionDetails: sanctionDetails ?? null,
+      userId,
+    },
+    update: {},
+  });
 
   logger.info('Wallet registered', {
-    walletId: wallet.id,
-    address: wallet.address,
+    walletId: record.id,
+    address: record.address,
     isSanctioned,
     riskLevel,
   });
 
-  return wallet;
+  return mapPrismaWallet(record);
 }
 
 /**
  * Returns a wallet by address, or null if not found.
  */
 export async function getWalletByAddress(address: string): Promise<Wallet | null> {
-  return wallets.get(address.toLowerCase()) ?? null;
+  const found = await prisma.wallet.findUnique({
+    where: { address: address.toLowerCase() },
+  });
+  return found ? mapPrismaWallet(found) : null;
 }
 
 /**
  * Recalculates and updates the risk score for a wallet.
  */
 export async function updateWalletRiskScore(address: string): Promise<Wallet | null> {
-  const wallet = wallets.get(address.toLowerCase());
-  if (!wallet) return null;
+  const existing = await prisma.wallet.findUnique({
+    where: { address: address.toLowerCase() },
+  });
+  if (!existing) return null;
 
+  const wallet = mapPrismaWallet(existing);
   const riskScore = calculateDynamicRiskScore(wallet);
   const riskLevel = scoreToRiskLevel(riskScore);
 
-  wallet.riskScore = riskScore;
-  wallet.riskLevel = riskLevel;
-  wallet.updatedAt = new Date();
+  const updated = await prisma.wallet.update({
+    where: { address: address.toLowerCase() },
+    data: { riskScore, riskLevel },
+  });
 
   logger.info('Wallet risk score updated', {
-    address: wallet.address,
+    address: updated.address,
     riskScore,
     riskLevel,
   });
 
-  return wallet;
+  return mapPrismaWallet(updated);
 }
 
 /**
@@ -114,11 +148,22 @@ export async function updateWalletRiskScore(address: string): Promise<Wallet | n
 export async function checkSanctionsList(
   address: string
 ): Promise<{ isSanctioned: boolean; details?: string }> {
-  const details = SANCTIONED_ADDRESSES.get(address.toLowerCase());
-  const isSanctioned = details !== undefined;
+  const localDetails = SANCTIONED_ADDRESSES.get(address.toLowerCase());
+  if (localDetails) {
+    logger.info('Sanctions check performed', { address, isSanctioned: true });
+    return { isSanctioned: true, details: localDetails };
+  }
+
+  // Also check persisted wallet record for any stored sanctions data
+  const stored = await prisma.wallet.findUnique({
+    where: { address: address.toLowerCase() },
+    select: { isSanctioned: true, sanctionDetails: true },
+  });
+
+  const isSanctioned = stored?.isSanctioned ?? false;
+  const details = stored?.sanctionDetails ?? undefined;
 
   logger.info('Sanctions check performed', { address, isSanctioned });
-
   return { isSanctioned, details };
 }
 
@@ -131,40 +176,18 @@ function calculateInitialRiskScore(
   isSanctioned: boolean
 ): number {
   let score = 0;
-
-  if (isSanctioned) {
-    score += 80;
-  }
-
-  // Heuristic: contract-like addresses (very short or specific patterns)
-  if (address.length < 10) {
-    score += 20;
-  }
-
+  if (isSanctioned) score += 80;
+  if (address.length < 10) score += 20;
   return Math.min(score, 100);
 }
 
 function calculateDynamicRiskScore(wallet: Wallet): number {
   let score = 0;
-
-  if (wallet.isSanctioned) {
-    score += 80;
-  }
-
-  // High transaction volume raises risk
-  if (wallet.totalVolumeUSD >= 1_000_000) {
-    score += 20;
-  } else if (wallet.totalVolumeUSD >= 100_000) {
-    score += 10;
-  }
-
-  // High transaction frequency raises risk
-  if (wallet.transactionCount >= 1000) {
-    score += 10;
-  } else if (wallet.transactionCount >= 100) {
-    score += 5;
-  }
-
+  if (wallet.isSanctioned) score += 80;
+  if (wallet.totalVolumeUSD >= 1_000_000) score += 20;
+  else if (wallet.totalVolumeUSD >= 100_000) score += 10;
+  if (wallet.transactionCount >= 1000) score += 10;
+  else if (wallet.transactionCount >= 100) score += 5;
   return Math.min(score, 100);
 }
 
