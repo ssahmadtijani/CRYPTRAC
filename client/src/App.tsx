@@ -24,6 +24,8 @@ import RegulatoryFilings from './pages/RegulatoryFilings';
 import UserAdmin from './pages/UserAdmin';
 import RoleManagement from './pages/RoleManagement';
 import AuditDashboard from './pages/AuditDashboard';
+import OnChainIngestion from './pages/OnChainIngestion';
+import XmlImport from './pages/XmlImport';
 import './App.css';
 
 export default function App() {
@@ -64,6 +66,8 @@ export default function App() {
             <Route path="/admin/users" element={<UserAdmin />} />
             <Route path="/admin/roles" element={<RoleManagement />} />
             <Route path="/admin/audit" element={<AuditDashboard />} />
+            <Route path="/ingestion" element={<OnChainIngestion />} />
+            <Route path="/xml-import" element={<XmlImport />} />
           </Route>
 
           {/* Fallback */}
