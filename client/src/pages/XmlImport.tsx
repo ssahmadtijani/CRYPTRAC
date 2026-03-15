@@ -276,7 +276,8 @@ export default function XmlImport() {
     if (activeTab === 'history') {
       loadHistory();
     }
-  }, [activeTab, page]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, page, pageSize]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

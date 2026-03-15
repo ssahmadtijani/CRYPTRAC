@@ -143,9 +143,16 @@ export default function OnChainIngestion() {
 
   useEffect(() => {
     loadData();
-    // Auto-refresh status every 15 seconds when running
+    // Auto-refresh status every 15 seconds only when ingestion is running
     const interval = setInterval(() => {
-      ingestionApi.getStatus().then((res) => setStatus(res.data.data ?? null)).catch(() => {});
+      ingestionApi.getStatus()
+        .then((res) => {
+          const s = res.data.data ?? null;
+          setStatus(s);
+          // Stop polling if ingestion has stopped
+          if (!s?.isRunning) clearInterval(interval);
+        })
+        .catch(() => {});
     }, 15000);
     return () => clearInterval(interval);
   }, []);
