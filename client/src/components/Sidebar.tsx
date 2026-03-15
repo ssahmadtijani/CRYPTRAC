@@ -17,6 +17,7 @@ const navItems = [
 const authorityRoles = [UserRole.ADMIN, UserRole.COMPLIANCE_OFFICER, UserRole.AUDITOR];
 const alertRulesRoles = [UserRole.ADMIN, UserRole.COMPLIANCE_OFFICER];
 const auditRoles = [UserRole.ADMIN, UserRole.AUDITOR, UserRole.COMPLIANCE_OFFICER];
+const ingestionRoles = [UserRole.ADMIN, UserRole.COMPLIANCE_OFFICER, UserRole.ANALYST, UserRole.AUDITOR];
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
@@ -24,6 +25,7 @@ export default function Sidebar() {
   const isAuthority = user && authorityRoles.includes(user.role as UserRole);
   const canManageAlerts = user && alertRulesRoles.includes(user.role as UserRole);
   const canViewAudit = user && auditRoles.includes(user.role as UserRole);
+  const canViewIngestion = user && ingestionRoles.includes(user.role as UserRole);
 
   return (
     <aside className="sidebar">
@@ -65,6 +67,32 @@ export default function Sidebar() {
             <span className="sidebar-icon">📜</span>
             <span>Audit Log</span>
           </NavLink>
+        )}
+
+        {canViewIngestion && (
+          <>
+            <div
+              style={{
+                padding: '0.75rem 1rem 0.25rem',
+                fontSize: '0.7rem',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+                borderTop: '1px solid var(--border)',
+                marginTop: '0.5rem',
+              }}
+            >
+              Data Ingestion
+            </div>
+            <NavLink to="/ingestion" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+              <span className="sidebar-icon">⛓️</span>
+              <span>On-Chain Ingestion</span>
+            </NavLink>
+            <NavLink to="/xml-import" className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+              <span className="sidebar-icon">📂</span>
+              <span>XML Import</span>
+            </NavLink>
+          </>
         )}
 
         {(user?.role === UserRole.ADMIN || user?.role === UserRole.COMPLIANCE_OFFICER || user?.role === UserRole.ANALYST || user?.role === UserRole.AUDITOR) && (
