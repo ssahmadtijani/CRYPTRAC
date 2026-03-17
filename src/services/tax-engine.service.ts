@@ -19,7 +19,8 @@ import { prisma } from '../lib/prisma';
 // ---------------------------------------------------------------------------
 
 export const USD_TO_NGN = 1550;
-const NIGERIAN_TAX_RATE = 0.10;
+export const VAT_RATE = 0.075;
+export const INCOME_TAX_RATE = 0.15;
 const LONG_TERM_THRESHOLD_DAYS = 365;
 const HIGH_VALUE_NGN_THRESHOLD = 10_000_000;
 const MIN_LOT_AMOUNT = 0.000001; // Epsilon for floating-point lot consumption
@@ -185,14 +186,39 @@ export function computeGainLoss(proceeds: number, costBasis: number): number {
 
 export function calculateTax(event: Partial<TaxableEvent>): TaxableEvent {
   const gainLoss = event.gainLossUSD ?? 0;
-  const taxableAmount = Math.max(gainLoss, 0);
-  const taxAmountUSD = taxableAmount * NIGERIAN_TAX_RATE;
+  const type = event.type;
+
+  const isCapitalGain =
+    type === TaxEventType.CAPITAL_GAIN_SHORT ||
+    type === TaxEventType.CAPITAL_GAIN_LONG;
+  const isStaking = type === TaxEventType.STAKING_REWARD;
+  const isIncomeEvent =
+    isStaking ||
+    type === TaxEventType.MINING_INCOME ||
+    type === TaxEventType.AIRDROP_INCOME;
+
+  let taxRate: number;
+  let taxableAmount: number;
+
+  if (isCapitalGain) {
+    taxRate = VAT_RATE;
+    taxableAmount = Math.max(gainLoss, 0);
+  } else if (isIncomeEvent) {
+    taxRate = INCOME_TAX_RATE;
+    // Staking rewards can carry negative values; all other income events are clamped
+    taxableAmount = isStaking ? gainLoss : Math.max(gainLoss, 0);
+  } else {
+    taxRate = VAT_RATE;
+    taxableAmount = Math.max(gainLoss, 0);
+  }
+
+  const taxAmountUSD = taxableAmount * taxRate;
   const taxAmountNGN = taxAmountUSD * USD_TO_NGN;
   const isFlagged = taxAmountNGN > HIGH_VALUE_NGN_THRESHOLD;
 
   return {
     ...event,
-    taxRate: NIGERIAN_TAX_RATE,
+    taxRate,
     taxAmountUSD,
     taxAmountNGN,
     isFlagged,
