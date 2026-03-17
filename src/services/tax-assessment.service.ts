@@ -16,7 +16,7 @@ import {
   TaxAuthorityDashboard,
   User,
 } from '../types';
-import { USD_TO_NGN, getTaxableEvents, processAllTransactions } from './tax-engine.service';
+import { USD_TO_NGN, VAT_RATE, INCOME_TAX_RATE, getTaxableEvents, processAllTransactions } from './tax-engine.service';
 import { getAllExchangeTransactions, getConnectedExchanges } from './exchange.service';
 import { logger } from '../utils/logger';
 import { prisma } from '../lib/prisma';
@@ -180,21 +180,8 @@ export async function generateAssessment(
 
   const netCapitalGainUSD = shortTermGainUSD + longTermGainUSD;
   const totalIncomeUSD = stakingIncomeUSD + miningIncomeUSD + airdropIncomeUSD;
-  const capitalGainsTaxUSD = periodEvents
-    .filter(
-      (e) =>
-        e.type === TaxEventType.CAPITAL_GAIN_SHORT ||
-        e.type === TaxEventType.CAPITAL_GAIN_LONG
-    )
-    .reduce((sum, e) => sum + e.taxAmountUSD, 0);
-  const incomeTaxUSD = periodEvents
-    .filter(
-      (e) =>
-        e.type === TaxEventType.STAKING_REWARD ||
-        e.type === TaxEventType.MINING_INCOME ||
-        e.type === TaxEventType.AIRDROP_INCOME
-    )
-    .reduce((sum, e) => sum + e.taxAmountUSD, 0);
+  const capitalGainsTaxUSD = Math.max(netCapitalGainUSD, 0) * VAT_RATE;
+  const incomeTaxUSD = Math.max((totalIncomeUSD * INCOME_TAX_RATE) - capitalGainsTaxUSD, 0);
 
   const totalTaxLiabilityUSD = capitalGainsTaxUSD + incomeTaxUSD;
   const totalTaxLiabilityNGN = totalTaxLiabilityUSD * USD_TO_NGN;

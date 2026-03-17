@@ -12,9 +12,9 @@ import { prisma } from '../lib/prisma';
 // ---------------------------------------------------------------------------
 // Tax rate constants (configurable via environment in production)
 // ---------------------------------------------------------------------------
-const SHORT_TERM_RATE = parseFloat(process.env.TAX_SHORT_TERM_RATE ?? '0.37');
-const LONG_TERM_RATE = parseFloat(process.env.TAX_LONG_TERM_RATE ?? '0.20');
-const INCOME_RATE = parseFloat(process.env.TAX_INCOME_RATE ?? '0.30');
+const SHORT_TERM_RATE = parseFloat(process.env.TAX_SHORT_TERM_RATE ?? '0.075');
+const LONG_TERM_RATE = parseFloat(process.env.TAX_LONG_TERM_RATE ?? '0.075');
+const INCOME_RATE = parseFloat(process.env.TAX_INCOME_RATE ?? '0.15');
 const LONG_TERM_THRESHOLD_DAYS = 365;
 
 // ---------------------------------------------------------------------------
@@ -80,7 +80,9 @@ export async function calculateTaxEvents(
       ? SHORT_TERM_RATE
       : LONG_TERM_RATE;
 
-    const taxableAmount = Math.max(gainLoss, 0);
+    // Staking rewards can carry negative values; all other events clamp to 0
+    const isStaking = event === TaxEventType.STAKING_REWARD;
+    const taxableAmount = isStaking ? gainLoss : Math.max(gainLoss, 0);
     const taxOwed = taxableAmount * taxRate;
 
     const taxEvent: TaxEvent = {

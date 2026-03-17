@@ -15,6 +15,8 @@ import ExportButton from '../components/ExportButton';
 // USD_TO_NGN mirrors the backend constant (src/services/tax-engine.service.ts).
 // Both must be updated together if the rate changes.
 const USD_TO_NGN = 1550;
+// VAT_RATE mirrors the backend constant (src/services/tax-engine.service.ts).
+const VAT_RATE = 0.075;
 
 const fmtUSD = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n);
@@ -23,8 +25,8 @@ const fmtNGN = (n: number) =>
   new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n);
 
 const EVENT_TYPE_LABELS: Record<TaxEventType, string> = {
-  [TaxEventType.CAPITAL_GAIN_SHORT]: 'Short-Term Gain',
-  [TaxEventType.CAPITAL_GAIN_LONG]: 'Long-Term Gain',
+  [TaxEventType.CAPITAL_GAIN_SHORT]: 'Short-Term Transaction',
+  [TaxEventType.CAPITAL_GAIN_LONG]: 'Long-Term Transaction',
   [TaxEventType.INCOME]: 'Income',
   [TaxEventType.MINING_INCOME]: 'Mining Income',
   [TaxEventType.STAKING_REWARD]: 'Staking Reward',
@@ -123,7 +125,7 @@ export default function Tax() {
         <div>
           <h1 className="page-title">Tax Summary</h1>
           <p className="page-subtitle">
-            Calculate your Nigerian crypto tax liability — Capital gains (10%) + Income (10%)
+            Calculate your Nigerian crypto tax liability — VAT (7.5%) on capital gains + Income tax (15%)
           </p>
         </div>
         <ExportButton endpoint="/export/tax-assessments" filename="tax-assessments" />
@@ -179,9 +181,9 @@ export default function Tax() {
           accent="danger"
         />
         <StatsCard
-          title="Net Capital Gains"
-          value={fmtUSD(totalGains)}
-          subtitle={`at 10% Nigerian rate`}
+          title="VAT (7.5%)"
+          value={fmtUSD(Math.max(totalGains, 0) * VAT_RATE)}
+          subtitle={`on capital gains`}
           accent={totalGains >= 0 ? 'success' : 'warning'}
         />
         <StatsCard
@@ -246,19 +248,19 @@ export default function Tax() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Capital Gains Tax</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>VAT (7.5%)</div>
                 <div style={{ fontWeight: 600 }}>{fmtNGN(display.capitalGainsTaxUSD * USD_TO_NGN)}</div>
               </div>
               <div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Income Tax</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Income Tax (15%)</div>
                 <div style={{ fontWeight: 600 }}>{fmtNGN(display.incomeTaxUSD * USD_TO_NGN)}</div>
               </div>
               <div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Total Proceeds</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Gross Transaction</div>
                 <div style={{ fontWeight: 600 }}>{fmtUSD(display.totalProceedsUSD)}</div>
               </div>
               <div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Cost Basis</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Net</div>
                 <div style={{ fontWeight: 600 }}>{fmtUSD(display.totalCostBasisUSD)}</div>
               </div>
             </div>
@@ -277,7 +279,7 @@ export default function Tax() {
                       <th>Exchange</th>
                       <th>Transactions</th>
                       <th>Volume (USD)</th>
-                      <th>Gain / Loss</th>
+                      <th>Commission</th>
                       <th>Tax (NGN)</th>
                     </tr>
                   </thead>
@@ -316,9 +318,9 @@ export default function Tax() {
                   <th>Type</th>
                   <th>Asset</th>
                   <th>Exchange</th>
-                  <th>Proceeds</th>
-                  <th>Cost Basis</th>
-                  <th>Gain/Loss</th>
+                  <th>Gross Transaction</th>
+                  <th>Net</th>
+                  <th>Commission</th>
                   <th>Tax (NGN)</th>
                   <th>Date</th>
                 </tr>
@@ -381,7 +383,7 @@ export default function Tax() {
                   <th>Year</th>
                   <th>Period</th>
                   <th>Taxable Events</th>
-                  <th>Net Gain</th>
+                  <th>VAT (7.5%)</th>
                   <th>Total Income</th>
                   <th>Tax Liability (NGN)</th>
                   <th>Status</th>
@@ -394,8 +396,8 @@ export default function Tax() {
                     <td>{a.taxYear}</td>
                     <td>{a.period}</td>
                     <td>{a.totalTaxableEvents}</td>
-                    <td style={{ color: a.netCapitalGainUSD >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                      {fmtUSD(a.netCapitalGainUSD)}
+                    <td style={{ color: a.capitalGainsTaxUSD >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                      {fmtUSD(a.capitalGainsTaxUSD)}
                     </td>
                     <td>{fmtUSD(a.totalIncomeUSD)}</td>
                     <td style={{ fontWeight: 600, color: 'var(--warning)' }}>
